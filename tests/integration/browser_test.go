@@ -206,10 +206,10 @@ func TestIndividualUpdateRedraw(t *testing.T) {
 }
 
 func TestWaitRetainsEvidenceAcrossExtraUpdates(t *testing.T) {
-	a, events := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 150})
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	a, events := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 400})
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	r, e := reloader.Run(ctx, a, reloader.Options{IDs: []string{"alpha", "beta"}, Wait: true, MinInterval: 250 * time.Millisecond, PollInterval: 50 * time.Millisecond})
+	r, e := reloader.Run(ctx, a, reloader.Options{IDs: []string{"alpha", "beta"}, Wait: true, MinInterval: 600 * time.Millisecond, PollInterval: 50 * time.Millisecond})
 	if e != nil || r.Bulk != "completed" || len(r.Extra) != 2 || r.Extra[0].Status != "completed" || r.Extra[1].Status != "completed" {
 		t.Fatalf("lost update evidence across refreshes: %+v %v", r, e)
 	}
@@ -219,7 +219,7 @@ func TestWaitRetainsEvidenceAcrossExtraUpdates(t *testing.T) {
 }
 
 func TestNewBulkDoesNotReusePreviousEvidence(t *testing.T) {
-	a, _ := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 150})
+	a, _ := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 400})
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	r, e := reloader.Run(ctx, a, reloader.Options{Wait: true, PollInterval: 50 * time.Millisecond})

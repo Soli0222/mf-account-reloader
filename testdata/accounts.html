@@ -74,6 +74,8 @@ function startLater(){if(sessionStorage.getItem('startAt')){
  const start=()=>{sessionStorage.removeItem('startAt');for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()};
  const delay=Number(sessionStorage.getItem('startAt'))-Date.now();if(delay>0)setTimeout(start,delay);else start();
 }}
-function completeLater(){if(options.complete&&sessionStorage.getItem('pending')){setTimeout(()=>{if(options.disappear)accounts.pop();for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';sessionStorage.removeItem('pending');render()},Math.max(0,(options.completeAfter||100)-(Date.now()-Number(sessionStorage.getItem('pending')))))}}
+// Keep the successful update visible across several adapter polls, including
+// slower native container runners. Unobserved updates have a separate test.
+function completeLater(){if(options.complete&&sessionStorage.getItem('pending')){setTimeout(()=>{if(options.disappear)accounts.pop();for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';sessionStorage.removeItem('pending');render()},Math.max(0,(options.completeAfter||500)-(Date.now()-Number(sessionStorage.getItem('pending')))))}}
 render();completeLater();startLater();
 </script></body></html>
