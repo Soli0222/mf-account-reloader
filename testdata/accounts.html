@@ -4,6 +4,7 @@
 <table id="account-table"><thead><tr><th>操作</th><th>状態</th><th>登録名</th></tr></thead><tbody id="rows"></tbody></table>
 <script>
 const options=OPTIONS;
+let selectedRedrawPending=false;
 if(options.duplicateBulk)document.body.prepend(document.getElementById("bulk").cloneNode(true));
 let accounts=JSON.parse(sessionStorage.getItem('accounts')||'null')||[{id:'alpha',name:'人工口座 A',status:'正常'},{id:'beta',name:'人工口座 B, 外貨',status:'正常'},{id:'gamma',name:'人工口座 C',status:'正常'}];
 if(options.duplicateName)accounts[1].name=accounts[0].name;
@@ -43,7 +44,19 @@ async function update(id){
  if(options.hiddenReceiptAfterClick){const hidden=document.createElement('span');hidden.hidden=true;hidden.textContent='更新要求を受け付けました';document.getElementById('receipt').append(hidden)}
  if(options.noReceipt||options.fail===id)return;
  if(id===null){document.getElementById('receipt').textContent='更新要求を受け付けました';document.getElementById('bulk').disabled=true}
- else {accounts.find(a=>a.id===id).status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()}
+ else {
+  accounts.find(a=>a.id===id).status=options.individualStatus||'更新中';
+  sessionStorage.setItem('pending',String(Date.now()));render();completeLater();
+  if(options.selectedRedraw){
+   selectedRedrawPending=true;
+   const row=[...document.getElementById('rows').children].find(r=>r.querySelector('a[href="/accounts/show/'+encodeURIComponent(id)+'"]'));
+   if(options.selectedRedraw==='row')row.remove();
+   if(options.selectedRedraw==='identity')for(const link of row.querySelectorAll('a[href]'))link.removeAttribute('href');
+   if(options.selectedRedraw==='duplicate')row.after(row.cloneNode(true));
+   if(options.selectedRedraw==='control')row.firstChild.append([...row.querySelectorAll('button')].find(b=>b.textContent==='更新').cloneNode(true));
+   if(options.restoreSelectedAfter)setTimeout(()=>{render();selectedRedrawPending=false},options.restoreSelectedAfter);
+  }
+ }
  if(id===null&&options.bulkUpdating){for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()}
 }
 function completeLater(){if(options.complete&&sessionStorage.getItem('pending')){setTimeout(()=>{if(options.disappear)accounts.pop();for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';sessionStorage.removeItem('pending');render()},Math.max(0,100-(Date.now()-Number(sessionStorage.getItem('pending')))))}}

@@ -88,6 +88,7 @@ func TestUpdates(t *testing.T) {
 		code       int
 		bulk       string
 	}{
+		{name: "extra survives temporary redraw", site: map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
 		{name: "hidden updating must not skip extra", site: map[string]any{"statusTemplates": true}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
 		{name: "hidden nested status must not make row ambiguous", site: map[string]any{"statusTemplates": true, "hiddenStatusCell": true}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
 		{name: "visible updating still skips extra", site: map[string]any{"statusTemplates": true, "updating": true}, ids: []string{"alpha"}, want: []string{"bulk"}, bulk: "accepted"},
@@ -153,6 +154,49 @@ func TestReadOnlyCommands(t *testing.T) {
 	}
 	if len(events()) != 0 {
 		t.Fatalf("read-only commands sent updates: %v", events())
+	}
+}
+
+func TestIndividualUpdateRedraw(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		options map[string]any
+		status  string
+		code    int
+	}{
+		{"temporary missing row", map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150}, "accepted", 0},
+		{"temporary missing identity", map[string]any{"selectedRedraw": "identity", "restoreSelectedAfter": 150}, "accepted", 0},
+		{"temporary duplicate row", map[string]any{"selectedRedraw": "duplicate", "restoreSelectedAfter": 150}, "accepted", 0},
+		{"temporary ambiguous control", map[string]any{"selectedRedraw": "control", "restoreSelectedAfter": 150}, "accepted", 0},
+		{"initial unknown status survives redraw", map[string]any{"unknown": true, "selectedRedraw": "row", "restoreSelectedAfter": 150}, "accepted", 0},
+		{"persistent missing row", map[string]any{"selectedRedraw": "row"}, "unknown", 4},
+		{"persistent missing identity", map[string]any{"selectedRedraw": "identity"}, "unknown", 4},
+		{"persistent duplicate row", map[string]any{"selectedRedraw": "duplicate"}, "unknown", 4},
+		{"persistent ambiguous control", map[string]any{"selectedRedraw": "control"}, "unknown", 4},
+		{"busy message after redraw is not acceptance", map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150, "individualStatus": "ただいま大変込み合ってます"}, "unknown", 4},
+		{"reported failure after redraw", map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150, "individualStatus": "取得失敗"}, "failed", 4},
+		{"authentication required after redraw", map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150, "individualStatus": "要認証"}, "failed", 4},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			a, events := setup(t, tt.options)
+			id := "alpha"
+			status, e := a.Update(context.Background(), &id)
+			if status != tt.status || failure.Code(e) != tt.code {
+				t.Fatalf("status=%s code=%d want=%s/%d: %v", status, failure.Code(e), tt.status, tt.code, e)
+			}
+			if status == "accepted" {
+				var pending bool
+				if e := a.Browser.Call(a.Browser.Context, `function(){return selectedRedrawPending}`, nil, &pending); e != nil {
+					t.Fatal(e)
+				}
+				if pending {
+					t.Fatal("accepted before the selected row became identifiable and unambiguous")
+				}
+			}
+			if got := events(); len(got) != 1 || got[0] != id {
+				t.Fatalf("requests=%v want one individual update", got)
+			}
+		})
 	}
 }
 
