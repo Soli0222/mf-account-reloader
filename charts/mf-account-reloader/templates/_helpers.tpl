@@ -5,7 +5,12 @@
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 52 | trimSuffix "-" -}}
 {{- else -}}
-{{- printf "%s-%s" .Release.Name (include "mfr.name" .) | trunc 52 | trimSuffix "-" -}}
+{{- $name := include "mfr.name" . -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 52 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 52 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- define "mfr.labels" -}}
