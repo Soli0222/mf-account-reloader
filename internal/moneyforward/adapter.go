@@ -20,6 +20,7 @@ type Adapter struct {
 	AccountsURL        string
 	Navigation, Action time.Duration
 	observedUpdating   map[string]bool
+	bulkPageDirty      bool
 }
 
 func New(b *browser.Browser, nav, action time.Duration) *Adapter {
@@ -49,7 +50,7 @@ func (a *Adapter) Probe(ctx context.Context) (Snapshot, bool, error) {
 		return s, false, e
 	}
 	e = a.Browser.Read(c, `function(arg){const adapter=`+dom+`;return adapter.snapshot()}`, nil, &s)
-	if e == nil && s.Structure && !s.Login {
+	if e == nil && s.Structure && !s.Login && !a.bulkPageDirty {
 		a.observe(&s)
 	}
 	return s, s.Structure && !s.Login, e
@@ -77,6 +78,9 @@ func (a *Adapter) observe(s *Snapshot) {
 	}
 }
 func (a *Adapter) Snapshot(ctx context.Context) (Snapshot, error) {
+	if a.bulkPageDirty {
+		return a.Refresh(ctx)
+	}
 	s, ok, e := a.Probe(ctx)
 	if e != nil {
 		if failure.Code(e) == 3 {
@@ -99,9 +103,12 @@ func (a *Adapter) Snapshot(ctx context.Context) (Snapshot, error) {
 	return s, nil
 }
 func (a *Adapter) Refresh(ctx context.Context) (Snapshot, error) {
-	if e := a.Browser.Navigate(ctx, a.AccountsURL, a.Navigation); e != nil {
+	if e := a.Browser.Reload(ctx, a.AccountsURL, a.Navigation); e != nil {
 		return Snapshot{}, e
 	}
+	// The bulk click page labels even excluded accounts as updating. Only a
+	// freshly loaded document can supply evidence for extra decisions and --wait.
+	a.bulkPageDirty = false
 	c, cancel := context.WithTimeout(ctx, a.Navigation)
 	defer cancel()
 	for {
@@ -190,6 +197,9 @@ func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
 	}
 	a.Browser.BeginUpdate(id == nil)
 	defer a.Browser.EndUpdate()
+	if id == nil {
+		a.bulkPageDirty = true
+	}
 	c, cancel := a.Browser.Bound(ctx, a.Action)
 	var clicked struct {
 		Clicked bool   `json:"clicked"`
@@ -201,6 +211,9 @@ func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
 		return "unknown", ctx.Err()
 	}
 	if clicked.Error != "" {
+		if id == nil {
+			a.bulkPageDirty = false
+		}
 		return "failed", failure.New(4, "update control changed before click")
 	}
 	// A navigation can interrupt CDP while clicking. Never retry the operation.
