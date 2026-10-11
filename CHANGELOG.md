@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.1](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.0...v0.1.1) (2026-10-11)
+
+
+### 修正・依存関係の更新
+
+* preserve caller deadlines in browser operations ([#10](https://github.com/Soli0222/mf-account-reloader/issues/10)) ([4a66689](https://github.com/Soli0222/mf-account-reloader/commit/4a66689c7241ad9f36864c8bcd8ca63b0be24990))
+* tolerate account redraws after individual update clicks ([#6](https://github.com/Soli0222/mf-account-reloader/issues/6)) ([35d98d6](https://github.com/Soli0222/mf-account-reloader/commit/35d98d637e6ccde9696738837efd69eed7f16111))
+* tolerate authentication navigation races and stabilize browser tests ([#9](https://github.com/Soli0222/mf-account-reloader/issues/9)) ([1636afc](https://github.com/Soli0222/mf-account-reloader/commit/1636afca1b0c0d0187c80552417da9293f13b060))
+* verify update acceptance and completion evidence ([#8](https://github.com/Soli0222/mf-account-reloader/issues/8)) ([5b740d3](https://github.com/Soli0222/mf-account-reloader/commit/5b740d3c3492ebf574d9e6cc5f5541ef8d000268))
+
 ## 0.1.0 (2026-10-11)
 
 
