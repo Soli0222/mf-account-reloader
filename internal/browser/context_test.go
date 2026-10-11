@@ -42,12 +42,52 @@ func TestBoundPreservesDeadline(t *testing.T) {
 				if time.Since(started) > time.Second {
 					t.Fatal("operation exceeded the earliest deadline")
 				}
+				if context.Cause(ctx) != context.DeadlineExceeded {
+					t.Fatalf("deadline cause lost: %v", context.Cause(ctx))
+				}
 				if ctx.Value(browserKey{}) != "session" {
 					t.Fatal("lost browser context values")
 				}
 			})
 		})
 	}
+}
+
+// Model a caller whose deadline notification is delayed by the scheduler.
+// Its descendants must observe its cancellation, not race an independent timer.
+type delayedDeadlineContext struct {
+	context.Context
+	deadline time.Time
+	done     chan struct{}
+}
+
+func (c delayedDeadlineContext) Deadline() (time.Time, bool) { return c.deadline, true }
+func (c delayedDeadlineContext) Done() <-chan struct{}       { return c.done }
+func (c delayedDeadlineContext) Err() error {
+	select {
+	case <-c.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
+func TestBoundDoesNotOutrunCallerDeadline(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		caller := delayedDeadlineContext{context.Background(), time.Now().Add(time.Second), make(chan struct{})}
+		b := &Browser{Context: context.Background()}
+		ctx, stop := b.Bound(caller, time.Hour)
+		defer stop()
+		time.Sleep(time.Second)
+		synctest.Wait()
+		if ctx.Err() != nil {
+			t.Fatalf("operation expired before its caller: operation=%v caller=%v", ctx.Err(), caller.Err())
+		}
+		close(caller.done)
+		if err := Pause(ctx, time.Hour); err != context.DeadlineExceeded || caller.Err() != err {
+			t.Fatalf("caller deadline not propagated: operation=%v caller=%v", err, caller.Err())
+		}
+	})
 }
 
 func TestBoundPreservesCancellation(t *testing.T) {
