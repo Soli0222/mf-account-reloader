@@ -56,6 +56,23 @@ for values in [{}, {'persistence.enabled': False}, {'persistence.existingClaim':
     if values.get('image.tag'):
         assert pod['containers'][0]['image'].endswith(':2.3.4')
 validate(*render(name='long-' + 'a' * 48))
+for name, values, expected in [
+    ('mf-account-reloader', {}, 'mf-account-reloader'),
+    ('staging-mf-account-reloader', {}, 'staging-mf-account-reloader'),
+    ('mfr', {}, 'mfr-mf-account-reloader'),
+    ('staging-worker', {'nameOverride': 'worker'}, 'staging-worker'),
+    ('mfr', {'nameOverride': 'worker'}, 'mfr-worker'),
+    ('mf-account-reloader', {'fullnameOverride': 'custom'}, 'custom'),
+]:
+    docs, cron = render(name=name, values=values)
+    pod, volumes, _ = validate(docs, cron)
+    assert cron['metadata']['name'] == expected
+    assert next(d for d in docs if d['kind'] == 'ConfigMap')['metadata']['name'] == expected + '-config'
+    assert volumes['config']['configMap']['name'] == expected + '-config'
+    assert next(d for d in docs if d['kind'] == 'ServiceAccount')['metadata']['name'] == expected
+    assert pod['serviceAccountName'] == expected
+    assert next(d for d in docs if d['kind'] == 'PersistentVolumeClaim')['metadata']['name'] == expected + '-state'
+    assert volumes['state']['persistentVolumeClaim']['claimName'] == expected + '-state'
 for field, value in [('suspend', 'invalid'), ('activeDeadlineSeconds', '0'), ('config.unknown', 'bad'), ('image.pullPolicy', 'bad'), ('config.auth.password', 'secret'), ('config.timeouts.run','0s'), ('config.reload.pollInterval','invalid')]:
     run('helm', 'template', 'test', CHART, '--set', f'{field}={value}', success=False)
 with tempfile.TemporaryDirectory() as tmp:
