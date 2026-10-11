@@ -132,10 +132,39 @@ func (b *Browser) Close() {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
+
+// operationContext adds the browser's CDP values without replacing the caller's
+// cancellation ancestry. WithoutCancel hides the browser's internal cancel key,
+// so nested contexts and context.Cause still refer to the operation's lifetime.
+type operationContext struct {
+	context.Context
+	browserValues context.Context
+}
+
+func (c operationContext) Value(key any) any {
+	if value := c.browserValues.Value(key); value != nil {
+		return value
+	}
+	return c.Context.Value(key)
+}
+
 func (b *Browser) Bound(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
-	c, cancel := context.WithTimeout(b.Context, d)
-	stop := context.AfterFunc(ctx, cancel)
-	return c, func() { stop(); cancel() }
+	deadline := time.Now().Add(d)
+	if browserDeadline, ok := b.Context.Deadline(); ok && browserDeadline.Before(deadline) {
+		deadline = browserDeadline
+	}
+	// Derive directly from the caller: copying its deadline into an independent
+	// timer can expire the operation before the caller's Err has been set.
+	c, cancel := context.WithDeadline(ctx, deadline)
+	cancelBrowser := func() {
+		if b.Context.Err() == context.Canceled {
+			cancel()
+		}
+	}
+	// Browser deadlines use the timer above; cancel() would lose their error.
+	stop := context.AfterFunc(b.Context, cancelBrowser)
+	cancelBrowser()
+	return operationContext{c, context.WithoutCancel(b.Context)}, func() { stop(); cancel() }
 }
 func (b *Browser) Navigate(ctx context.Context, url string, d time.Duration) error {
 	for attempt := 0; attempt < 2; attempt++ {
