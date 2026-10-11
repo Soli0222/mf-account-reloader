@@ -12,7 +12,7 @@
         {"type":"fix", "section":"修正・依存関係の更新"},
         {"type":"perf", "section":"性能改善"},
         {"type":"docs", "section":"文書", "hidden":true},
-        {"type":"chore", "section":"保守", "hidden":true}
+        {"type":"chore", "section":"保守", "hidden":false}
       ]
     }
   }
