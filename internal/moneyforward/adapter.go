@@ -200,19 +200,20 @@ func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
 				}
 			} else {
 				x, found := uniqueAccount(after, *id)
-				if !found {
-					return "failed", failure.New(4, "selected account disappeared")
-				}
-				if x.Status == "failed" || x.Status == "auth_required" {
-					return "failed", failure.New(4, "individual update reported failure")
-				}
-				if x.Status == "updating" {
-					return "accepted", nil
-				}
-				// A receipt alone cannot identify a different row; require the selected control to change.
-				old, _ := uniqueAccount(before, *id)
-				if old.CanUpdate && !x.CanUpdate && !x.Ambiguous {
-					return "accepted", nil
+				// A redraw can temporarily remove identity links or duplicate rows/controls.
+				// Keep observing within the action deadline; never repeat the click.
+				if found && !x.Ambiguous {
+					if x.Status == "failed" || x.Status == "auth_required" {
+						return "failed", failure.New(4, "individual update reported failure")
+					}
+					if x.Status == "updating" {
+						return "accepted", nil
+					}
+					// A receipt alone cannot identify a different row; require the selected control to change.
+					old, _ := uniqueAccount(before, *id)
+					if old.CanUpdate && !x.CanUpdate {
+						return "accepted", nil
+					}
 				}
 			}
 		} else if pe == nil {
