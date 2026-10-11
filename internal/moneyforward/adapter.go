@@ -48,7 +48,7 @@ func (a *Adapter) Probe(ctx context.Context) (Snapshot, bool, error) {
 	if e = browser.ResponseError(status); e != nil {
 		return s, false, e
 	}
-	e = a.Browser.Call(c, `function(arg){const adapter=`+dom+`;return adapter.snapshot()}`, nil, &s)
+	e = a.Browser.Read(c, `function(arg){const adapter=`+dom+`;return adapter.snapshot()}`, nil, &s)
 	if e == nil && s.Structure && !s.Login {
 		a.observe(&s)
 	}

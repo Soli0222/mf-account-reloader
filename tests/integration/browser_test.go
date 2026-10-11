@@ -70,13 +70,49 @@ func setup(t *testing.T, options map[string]any) (*moneyforward.Adapter, func() 
 		t.Fatal(e)
 	}
 	t.Cleanup(b.Close)
-	a := moneyforward.New(b, 2*time.Second, 350*time.Millisecond)
+	a := moneyforward.New(b, testNavigationTimeout, testActionTimeout)
 	a.AccountsURL = server.URL + "/accounts"
-	if e = b.Navigate(context.Background(), a.AccountsURL, 2*time.Second); e != nil {
+	if e = b.Navigate(context.Background(), a.AccountsURL, testNavigationTimeout); e != nil {
 		t.Fatal(e)
 	}
 	eventsFn := func() []string { mu.Lock(); defer mu.Unlock(); return append([]string{}, events...) }
 	return a, eventsFn
+}
+
+// The synthetic retrieval finishes only after the real adapter has read its
+// updating state. This avoids racing a short-lived timer against CDP polling.
+type completingPage struct {
+	*moneyforward.Adapter
+	completions int
+}
+
+func (p *completingPage) advance(ctx context.Context, s moneyforward.Snapshot, err error) (moneyforward.Snapshot, error) {
+	if err != nil {
+		return s, err
+	}
+	for _, x := range s.Accounts {
+		if x.Status == "updating" {
+			c, cancel := p.Browser.Bound(ctx, testActionTimeout)
+			defer cancel()
+			var completed bool
+			err = p.Browser.Call(c, `function(){return finishUpdate()}`, nil, &completed)
+			if completed {
+				p.completions++
+			}
+			break
+		}
+	}
+	return s, err
+}
+
+func (p *completingPage) Snapshot(ctx context.Context) (moneyforward.Snapshot, error) {
+	s, e := p.Adapter.Snapshot(ctx)
+	return p.advance(ctx, s, e)
+}
+
+func (p *completingPage) Refresh(ctx context.Context) (moneyforward.Snapshot, error) {
+	s, e := p.Adapter.Refresh(ctx)
+	return p.advance(ctx, s, e)
 }
 func TestUpdates(t *testing.T) {
 	cases := []struct {
@@ -90,7 +126,7 @@ func TestUpdates(t *testing.T) {
 	}{
 		{name: "disabled bulk is not acceptance", site: map[string]any{"disableBeforeResponse": true, "rejectAfterDisable": true}, want: []string{"bulk"}, code: 4, bulk: "unknown"},
 		{name: "wait requires update evidence", wait: true, want: []string{"bulk"}, code: 5, bulk: "accepted"},
-		{name: "wait for delayed start", site: map[string]any{"bulkUpdating": true, "delayedBulkStart": 250, "complete": true, "completeAfter": 250}, wait: true, want: []string{"bulk"}, bulk: "completed"},
+		{name: "wait for delayed start", site: map[string]any{"bulkUpdating": true, "delayedBulkStart": 250, "complete": true}, wait: true, want: []string{"bulk"}, bulk: "completed"},
 		{name: "extra survives temporary redraw", site: map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
 		{name: "hidden updating must not skip extra", site: map[string]any{"statusTemplates": true}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
 		{name: "hidden nested status must not make row ambiguous", site: map[string]any{"statusTemplates": true, "hiddenStatusCell": true}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
@@ -126,9 +162,14 @@ func TestUpdates(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			a, events := setup(t, tt.site)
-			ctx, cancel := context.WithTimeout(context.Background(), 1300*time.Millisecond)
+			page := &completingPage{Adapter: a}
+			runTimeout := testRunTimeout
+			if tt.code == 5 {
+				runTimeout = testNavigationTimeout
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
 			defer cancel()
-			result, e := reloader.Run(ctx, a, reloader.Options{IDs: tt.ids, Names: tt.names, DryRun: tt.dry, Wait: tt.wait, PollInterval: 50 * time.Millisecond, MinInterval: time.Millisecond})
+			result, e := reloader.Run(ctx, page, reloader.Options{IDs: tt.ids, Names: tt.names, DryRun: tt.dry, Wait: tt.wait, PollInterval: 50 * time.Millisecond, MinInterval: time.Millisecond})
 			if failure.Code(e) != tt.code {
 				t.Fatalf("code=%d want %d: %v result=%+v", failure.Code(e), tt.code, e, result)
 			}
@@ -138,6 +179,9 @@ func TestUpdates(t *testing.T) {
 			}
 			if tt.bulk != "" && result.Bulk != tt.bulk {
 				t.Fatalf("bulk=%s want=%s", result.Bulk, tt.bulk)
+			}
+			if result.Bulk == "completed" && page.completions == 0 {
+				t.Fatal("reported completion before the synthetic retrieval finished")
 			}
 		})
 	}
@@ -206,23 +250,27 @@ func TestIndividualUpdateRedraw(t *testing.T) {
 }
 
 func TestWaitRetainsEvidenceAcrossExtraUpdates(t *testing.T) {
-	a, events := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 400})
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	a, events := setup(t, map[string]any{"bulkUpdating": true, "complete": true})
+	page := &completingPage{Adapter: a}
+	ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
 	defer cancel()
-	r, e := reloader.Run(ctx, a, reloader.Options{IDs: []string{"alpha", "beta"}, Wait: true, MinInterval: 600 * time.Millisecond, PollInterval: 50 * time.Millisecond})
+	r, e := reloader.Run(ctx, page, reloader.Options{IDs: []string{"alpha", "beta"}, Wait: true, MinInterval: time.Millisecond, PollInterval: 50 * time.Millisecond})
 	if e != nil || r.Bulk != "completed" || len(r.Extra) != 2 || r.Extra[0].Status != "completed" || r.Extra[1].Status != "completed" {
 		t.Fatalf("lost update evidence across refreshes: %+v %v", r, e)
 	}
 	if got := strings.Join(events(), "|"); got != "bulk|alpha|beta" {
 		t.Fatalf("requests=%s", got)
 	}
+	if page.completions != 3 {
+		t.Fatalf("completed %d retrievals, want bulk and both extras", page.completions)
+	}
 }
 
 func TestNewBulkDoesNotReusePreviousEvidence(t *testing.T) {
-	a, _ := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 400})
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	a, _ := setup(t, map[string]any{"bulkUpdating": true, "complete": true})
+	ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
 	defer cancel()
-	r, e := reloader.Run(ctx, a, reloader.Options{Wait: true, PollInterval: 50 * time.Millisecond})
+	r, e := reloader.Run(ctx, &completingPage{Adapter: a}, reloader.Options{Wait: true, PollInterval: 50 * time.Millisecond})
 	if e != nil || r.Bulk != "completed" {
 		t.Fatalf("first update: %+v %v", r, e)
 	}

@@ -13,8 +13,17 @@ import (
 	"github.com/pquerna/otp/totp"
 )
 
+type loginBrowser interface {
+	Bound(context.Context, time.Duration) (context.Context, context.CancelFunc)
+	Read(context.Context, string, any, any) error
+	Call(context.Context, string, any, any) error
+	Navigate(context.Context, string, time.Duration) error
+	RecordOrigin(context.Context) error
+	UnexpectedDialog() bool
+}
+
 type Manager struct {
-	Browser      *browser.Browser
+	Browser      loginBrowser
 	Accounts     *moneyforward.Adapter
 	LoginTimeout time.Duration
 	Now          func() time.Time
@@ -72,10 +81,10 @@ func (m *Manager) Ensure(ctx context.Context, interactive, auto bool, credential
 const inspect = `function(){
  const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
  const pick=s=>[...document.querySelectorAll(s)].filter(visible).length;
- const text=s=>[...document.querySelectorAll('button,a')].filter(visible).map(e=>(e.innerText||'').trim()).filter(t=>s.includes(t));
- return {email:pick('input[name="mfid_user[email]"]'),password:pick('input[name="mfid_user[password]"],input[type="password"]'),otp:pick('input[autocomplete="one-time-code"],input[name*="otp"],input[name*="code"]'),body:!!document.querySelector('body'),blocked:!!document.querySelector('iframe[src*="captcha"],#captcha')||/CAPTCHA|追加同意|SMSコード|メール.*コード/.test(document.body?.innerText||''),selection:text(['メールアドレスでログイン','Sign in with email','マネーフォワード MEへ戻る','マネーフォワード ME'])};
+ return {url:location.href,ready:document.readyState!=='loading',email:pick('input[name="mfid_user[email]"]'),password:pick('input[name="mfid_user[password]"],input[type="password"]'),otp:pick('input[autocomplete="one-time-code"],input[name*="otp"],input[name*="code"]'),blocked:!!document.querySelector('iframe[src*="captcha"],#captcha')||/CAPTCHA|追加同意|SMSコード|メール.*コード/.test(document.body?.innerText||'')};
 }`
 const submit = `function(arg){
+ if(location.href!==arg.url||!['https://moneyforward.com','https://id.moneyforward.com'].includes(location.origin))return false;
  const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden'&&!e.disabled;
  const selectors={email:'input[name="mfid_user[email]"]',password:'input[name="mfid_user[password]"],input[type="password"]',otp:'input[autocomplete="one-time-code"],input[name*="otp"],input[name*="code"]'};
  if(arg.kind==='selection'){
@@ -88,6 +97,16 @@ const submit = `function(arg){
  const unique=[...new Set(buttons)];if(unique.length!==1)return false;
  const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(i,arg.value);i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new Event('change',{bubbles:true}));unique[0].click();return true;
 }`
+
+type formState struct {
+	URL                  string
+	Ready, Blocked       bool
+	Email, Password, OTP int
+}
+
+func uncertainSubmission(err error) bool {
+	return browser.NavigationInterrupted(err) || errors.Is(err, context.DeadlineExceeded)
+}
 
 func trusted(raw string) bool {
 	u, e := url.Parse(raw)
@@ -119,21 +138,22 @@ func (m *Manager) Auto(ctx context.Context, c config.Credentials) error {
 			return nil
 		}
 		bound, cancel := m.Browser.Bound(ctx, m.Accounts.Action)
-		u, e := m.Browser.URL(bound)
-		if e != nil || !trusted(u) {
-			cancel()
-			return failure.New(3, "unexpected authentication origin")
-		}
-		var f struct {
-			Email, Password, OTP int
-			Blocked              bool
-			Body                 bool
-			Selection            []string
-		}
-		e = m.Browser.Call(bound, inspect, nil, &f)
+		var f formState
+		e = m.Browser.Read(bound, inspect, nil, &f)
 		if e != nil {
 			cancel()
 			return failure.New(3, "cannot inspect authentication form")
+		}
+		if !trusted(f.URL) {
+			cancel()
+			return failure.New(3, "unexpected authentication origin")
+		}
+		if !f.Ready {
+			cancel()
+			if e = browser.Pause(ctx, 100*time.Millisecond); e != nil {
+				return failure.New(3, "automatic login deadline exceeded")
+			}
+			continue
 		}
 		_ = m.Browser.RecordOrigin(bound)
 		if f.Blocked {
@@ -166,7 +186,7 @@ func (m *Manager) Auto(ctx context.Context, c config.Credentials) error {
 			}
 			kind, value = "email", c.Email
 		default:
-			uParsed, _ := url.Parse(u)
+			uParsed, _ := url.Parse(f.URL)
 			if !returnedToME && used["password"] && (uParsed.Host == "id.moneyforward.com" && uParsed.Path == "/" || uParsed.Host == "moneyforward.com" && uParsed.Path == "/") {
 				cancel()
 				returnedToME = true
@@ -184,9 +204,12 @@ func (m *Manager) Auto(ctx context.Context, c config.Credentials) error {
 				continue
 			}
 			var selection bool
-			e = m.Browser.Call(bound, submit, map[string]string{"kind": "selection", "value": c.Email}, &selection)
+			e = m.Browser.Call(bound, submit, map[string]string{"kind": "selection", "value": c.Email, "url": f.URL}, &selection)
 			cancel()
-			if e == nil && selection {
+			if e != nil && !uncertainSubmission(e) {
+				return failure.New(3, "account selection could not be confirmed")
+			}
+			if e == nil && selection || uncertainSubmission(e) {
 				transitions++
 				if used["selection"] {
 					return failure.New(3, "repeated account selection")
@@ -201,11 +224,13 @@ func (m *Manager) Auto(ctx context.Context, c config.Credentials) error {
 			continue
 		}
 		var submitted bool
-		e = m.Browser.Call(bound, submit, map[string]string{"kind": kind, "value": value}, &submitted)
+		e = m.Browser.Call(bound, submit, map[string]string{"kind": kind, "value": value, "url": f.URL}, &submitted)
 		cancel()
-		if e != nil || !submitted {
+		if e != nil && !uncertainSubmission(e) || e == nil && !submitted {
 			return failure.New(3, "authentication submission could not be confirmed")
 		}
+		// Navigation can destroy the reply after a successful click. Treat the
+		// stage as used, then confirm advancement by reading; never submit twice.
 		used[kind] = true
 		transitions++
 		// Wait for the submitted form to disappear. A failed unchanged form is not submitted twice.
@@ -221,10 +246,14 @@ func (m *Manager) Auto(ctx context.Context, c config.Credentials) error {
 				return nil
 			}
 			bc, cc := m.Browser.Bound(until, m.Accounts.Action)
-			var next struct{ Email, Password, OTP int }
-			e = m.Browser.Call(bc, inspect, nil, &next)
+			var next formState
+			e = m.Browser.Read(bc, inspect, nil, &next)
 			cc()
-			if e == nil && (kind == "email" && next.Email == 0 || kind == "password" && next.Password == 0 || kind == "otp" && next.OTP == 0) {
+			if e == nil && !trusted(next.URL) {
+				stop()
+				return failure.New(3, "unexpected authentication origin")
+			}
+			if e == nil && next.Ready && (kind == "email" && next.Email == 0 || kind == "password" && next.Password == 0 || kind == "otp" && next.OTP == 0) {
 				break
 			}
 		}

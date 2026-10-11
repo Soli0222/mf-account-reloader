@@ -55,7 +55,7 @@ async function update(id){
  if(id===null){document.getElementById('receipt').textContent='更新要求を受け付けました';document.getElementById('bulk').disabled=true}
  else {
   accounts.find(a=>a.id===id).status=options.individualStatus||'更新中';
-  sessionStorage.setItem('pending',String(Date.now()));render();completeLater();
+  sessionStorage.setItem('pending','1');render();
   if(options.selectedRedraw){
    selectedRedrawPending=true;
    const row=[...document.getElementById('rows').children].find(r=>r.querySelector('a[href="/accounts/show/'+encodeURIComponent(id)+'"]'));
@@ -71,11 +71,16 @@ async function update(id){
  }
 }
 function startLater(){if(sessionStorage.getItem('startAt')){
- const start=()=>{sessionStorage.removeItem('startAt');for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()};
+ const start=()=>{sessionStorage.removeItem('startAt');for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending','1');render()};
  const delay=Number(sessionStorage.getItem('startAt'))-Date.now();if(delay>0)setTimeout(start,delay);else start();
 }}
-// Keep the successful update visible across several adapter polls, including
-// slower native container runners. Unobserved updates have a separate test.
-function completeLater(){if(options.complete&&sessionStorage.getItem('pending')){setTimeout(()=>{if(options.disappear)accounts.pop();for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';sessionStorage.removeItem('pending');render()},Math.max(0,(options.completeAfter||500)-(Date.now()-Number(sessionStorage.getItem('pending')))))}}
-render();completeLater();startLater();
+// The test driver calls this only after the adapter observes updating. Pending
+// state survives navigation; completion never depends on runner scheduling.
+function finishUpdate(){
+ if(!options.complete||!sessionStorage.getItem('pending'))return false;
+ if(options.disappear)accounts.pop();
+ for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';
+ sessionStorage.removeItem('pending');render();return true;
+}
+render();startLater();
 </script></body></html>
