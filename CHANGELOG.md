@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.2](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.1...v0.1.2) (2026-10-11)
+
+
+### 修正・依存関係の更新
+
+* **chart:** avoid duplicate application name in resource names ([#13](https://github.com/Soli0222/mf-account-reloader/issues/13)) ([5c5fe36](https://github.com/Soli0222/mf-account-reloader/commit/5c5fe3678c1b654fbb2899f8d6f2c6c616056364))
+* reload account states after bulk updates ([#11](https://github.com/Soli0222/mf-account-reloader/issues/11)) ([0cfaa8e](https://github.com/Soli0222/mf-account-reloader/commit/0cfaa8e36cd2e096fa2baf89ae86175d7ec27037))
+
+
+### 保守
+
+* **chart:** bump mf-account-reloader chart version to 0.1.1 ([98b2dd2](https://github.com/Soli0222/mf-account-reloader/commit/98b2dd2f4b6ca8328c808da69ba1603103d2a4b4))
+
 ## [0.1.1](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.0...v0.1.1) (2026-10-11)
 
 
