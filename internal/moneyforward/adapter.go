@@ -19,10 +19,11 @@ type Adapter struct {
 	Browser            *browser.Browser
 	AccountsURL        string
 	Navigation, Action time.Duration
+	observedUpdating   map[string]bool
 }
 
 func New(b *browser.Browser, nav, action time.Duration) *Adapter {
-	return &Adapter{b, AccountsURL, nav, action}
+	return &Adapter{Browser: b, AccountsURL: AccountsURL, Navigation: nav, Action: action}
 }
 func SameAccountsURL(raw, expected string) bool {
 	u, e := url.Parse(raw)
@@ -48,7 +49,32 @@ func (a *Adapter) Probe(ctx context.Context) (Snapshot, bool, error) {
 		return s, false, e
 	}
 	e = a.Browser.Call(c, `function(arg){const adapter=`+dom+`;return adapter.snapshot()}`, nil, &s)
+	if e == nil && s.Structure && !s.Login {
+		a.observe(&s)
+	}
 	return s, s.Structure && !s.Login, e
+}
+
+// Retain evidence across refreshes and other account updates. A normal status
+// alone may still describe the retrieval that preceded this request.
+func (a *Adapter) observe(s *Snapshot) {
+	if a.observedUpdating == nil {
+		a.observedUpdating = map[string]bool{}
+	}
+	counts := map[string]int{}
+	for _, x := range s.Accounts {
+		counts[x.ID]++
+	}
+	for i := range s.Accounts {
+		x := &s.Accounts[i]
+		if x.ID == "" || x.Ambiguous || counts[x.ID] != 1 {
+			continue
+		}
+		if x.Status == "updating" {
+			a.observedUpdating[x.ID] = true
+		}
+		x.ObservedUpdating = a.observedUpdating[x.ID]
+	}
 }
 func (a *Adapter) Snapshot(ctx context.Context) (Snapshot, error) {
 	s, ok, e := a.Probe(ctx)
@@ -122,6 +148,10 @@ func uniqueAccount(s Snapshot, id string) (Account, bool) {
 	return result, n == 1
 }
 func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
+	if id == nil {
+		// Start a new bulk cycle, retaining only updates still active now.
+		a.observedUpdating = nil
+	}
 	before, e := a.Snapshot(ctx)
 	if e != nil {
 		return "unknown", e
@@ -137,6 +167,8 @@ func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
 		if !x.CanUpdate {
 			return "failed", failure.New(4, "individual update is unavailable")
 		}
+		// This new request cannot reuse completion evidence from the bulk run.
+		delete(a.observedUpdating, *id)
 	} else {
 		if before.BulkCount != 1 {
 			return "failed", failure.New(4, "bulk update control is missing or ambiguous")
@@ -195,7 +227,7 @@ func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
 						transition = true
 					}
 				}
-				if after.Receipt != "" && after.Receipt != before.Receipt || before.BulkEnabled && !after.BulkEnabled && after.BulkCount == 1 || transition {
+				if after.Receipt != "" && after.Receipt != before.Receipt || transition {
 					return "accepted", nil
 				}
 			} else {
@@ -209,11 +241,8 @@ func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
 					if x.Status == "updating" {
 						return "accepted", nil
 					}
-					// A receipt alone cannot identify a different row; require the selected control to change.
-					old, _ := uniqueAccount(before, *id)
-					if old.CanUpdate && !x.CanUpdate {
-						return "accepted", nil
-					}
+					// Disabling a control can precede a rejected request. A global
+					// receipt also cannot identify this row; require its updating state.
 				}
 			}
 		} else if pe == nil {

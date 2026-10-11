@@ -151,6 +151,9 @@ func Run(ctx context.Context, p Page, o Options) (result Result, err error) {
 			case "updating":
 				done = false
 			case "ok":
+				if !x.ObservedUpdating {
+					done = false
+				}
 			default:
 				return result, failure.New(4, "completion target failed or has an unknown state")
 			}
