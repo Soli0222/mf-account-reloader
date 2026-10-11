@@ -71,6 +71,46 @@ func TestRejectUnexpectedDomains(t *testing.T) {
 		t.Fatal("unexpected origin")
 	}
 }
+
+func TestPrepareSecuresExistingOwnedDirectory(t *testing.T) {
+	for _, mode := range []os.FileMode{0755, 0777} {
+		dir := filepath.Join(t.TempDir(), "state")
+		if e := os.Mkdir(dir, mode); e != nil {
+			t.Fatal(e)
+		}
+		if e := os.Chmod(dir, mode); e != nil {
+			t.Fatal(e)
+		}
+		if e := Prepare(filepath.Join(dir, "auth-state.json")); e != nil {
+			t.Fatal(e)
+		}
+		info, e := os.Stat(dir)
+		if e != nil || info.Mode().Perm() != 0700 {
+			t.Fatalf("existing directory was not secured: %v %v", info, e)
+		}
+	}
+}
+
+func TestPreparePreservesWorkingDirectoryThroughAlias(t *testing.T) {
+	dir := t.TempDir()
+	if e := os.Chmod(dir, 0755); e != nil {
+		t.Fatal(e)
+	}
+	t.Chdir(dir)
+	alias := filepath.Join(t.TempDir(), "alias")
+	if e := os.Symlink(dir, alias); e != nil {
+		t.Fatal(e)
+	}
+	for _, path := range []string{"auth-state.json", filepath.Join(alias, "auth-state.json")} {
+		if e := Prepare(path); e != nil {
+			t.Fatal(e)
+		}
+		info, e := os.Stat(dir)
+		if e != nil || info.Mode().Perm() != 0755 {
+			t.Fatalf("working directory permissions changed: %v %v", info, e)
+		}
+	}
+}
 func TestLockAndProcessExit(t *testing.T) {
 	if p := os.Getenv("MFR_TEST_LOCK_PATH"); p != "" {
 		lock, e := Acquire(p)

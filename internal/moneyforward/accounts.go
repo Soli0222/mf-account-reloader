@@ -12,6 +12,8 @@ type Account struct {
 	CanUpdate bool   `json:"canUpdate"`
 	Automatic bool   `json:"automatic"`
 	Ambiguous bool   `json:"ambiguous"`
+	// ObservedUpdating is browser-observed evidence for the current request cycle.
+	ObservedUpdating bool `json:"-"`
 }
 type Snapshot struct {
 	Structure   bool      `json:"structure"`

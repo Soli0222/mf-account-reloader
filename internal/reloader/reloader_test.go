@@ -48,12 +48,26 @@ func TestBulkFailureStopsExtras(t *testing.T) {
 	}
 }
 func TestMinimumIntervalAndCompleteTargets(t *testing.T) {
-	s := moneyforward.Snapshot{BulkCount: 1, Accounts: []moneyforward.Account{{ID: "a", Automatic: true, CanUpdate: true, Status: "ok"}, {ID: "b", Status: "manual"}, {ID: "c", Automatic: true, Status: "auth_required"}}}
+	s := moneyforward.Snapshot{BulkCount: 1, Accounts: []moneyforward.Account{{ID: "a", Automatic: true, CanUpdate: true, Status: "ok", ObservedUpdating: true}, {ID: "b", Status: "manual"}, {ID: "c", Automatic: true, Status: "auth_required"}}}
 	m := &mockPage{states: []moneyforward.Snapshot{s}}
 	var delays []time.Duration
 	r, e := Run(context.Background(), m, Options{IDs: []string{"a"}, Wait: true, PollInterval: time.Second, Pause: func(_ context.Context, d time.Duration) error { delays = append(delays, d); return nil }})
 	if e != nil || r.Bulk != "completed" || r.Excluded != 2 || len(delays) != 1 || delays[0] < time.Second {
 		t.Fatal(r, e, delays)
+	}
+}
+
+func TestWaitRequiresEvidenceForEveryTarget(t *testing.T) {
+	for _, observed := range []bool{false, true} {
+		s := moneyforward.Snapshot{BulkCount: 1, Accounts: []moneyforward.Account{
+			{ID: "a", Automatic: true, Status: "ok", ObservedUpdating: observed},
+			{ID: "b", Automatic: true, Status: "ok"},
+		}}
+		m := &mockPage{states: []moneyforward.Snapshot{s}}
+		r, e := Run(context.Background(), m, Options{Wait: true, PollInterval: time.Second, Pause: func(context.Context, time.Duration) error { return context.DeadlineExceeded }})
+		if failure.Code(e) != 5 || r.Bulk != "accepted" {
+			t.Fatalf("stale normal status was reported as complete: %+v %v", r, e)
+		}
 	}
 }
 func TestWaitIncludesPostUpdateSnapshot(t *testing.T) {

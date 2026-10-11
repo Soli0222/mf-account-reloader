@@ -39,7 +39,16 @@ function render(){
 }
 async function update(id){
  if(options.dialog&&!confirm(options.dialog))return;
+ if(options.disableBeforeResponse){
+  const control=id===null?document.getElementById('bulk'):[...document.querySelectorAll('#rows tr')].find(r=>r.querySelector('a[href="/accounts/show/'+encodeURIComponent(id)+'"]')).querySelector('button:last-child');
+  control.disabled=true;
+  await new Promise(resolve=>setTimeout(resolve,150));
+ }
  await fetch('/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+ if(options.rejectAfterDisable){
+  if(id!==null){accounts.find(a=>a.id===id).status='取得失敗';render()}
+  return;
+ }
  if(options.redirect){location.href='/login';return}
  if(options.hiddenReceiptAfterClick){const hidden=document.createElement('span');hidden.hidden=true;hidden.textContent='更新要求を受け付けました';document.getElementById('receipt').append(hidden)}
  if(options.noReceipt||options.fail===id)return;
@@ -57,8 +66,16 @@ async function update(id){
    if(options.restoreSelectedAfter)setTimeout(()=>{render();selectedRedrawPending=false},options.restoreSelectedAfter);
   }
  }
- if(id===null&&options.bulkUpdating){for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()}
+ if(id===null&&options.bulkUpdating){
+  sessionStorage.setItem('startAt',String(Date.now()+(options.delayedBulkStart||0)));startLater();
+ }
 }
-function completeLater(){if(options.complete&&sessionStorage.getItem('pending')){setTimeout(()=>{if(options.disappear)accounts.pop();for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';sessionStorage.removeItem('pending');render()},Math.max(0,100-(Date.now()-Number(sessionStorage.getItem('pending')))))}}
-render();completeLater();
+function startLater(){if(sessionStorage.getItem('startAt')){
+ const start=()=>{sessionStorage.removeItem('startAt');for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()};
+ const delay=Number(sessionStorage.getItem('startAt'))-Date.now();if(delay>0)setTimeout(start,delay);else start();
+}}
+// Keep the successful update visible across several adapter polls, including
+// slower native container runners. Unobserved updates have a separate test.
+function completeLater(){if(options.complete&&sessionStorage.getItem('pending')){setTimeout(()=>{if(options.disappear)accounts.pop();for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';sessionStorage.removeItem('pending');render()},Math.max(0,(options.completeAfter||500)-(Date.now()-Number(sessionStorage.getItem('pending')))))}}
+render();completeLater();startLater();
 </script></body></html>

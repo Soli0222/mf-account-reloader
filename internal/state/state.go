@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/Soli0222/mf-account-reloader/internal/failure"
 	"github.com/chromedp/cdproto/network"
@@ -98,11 +99,13 @@ func Prepare(path string) error {
 	// Never change the permissions of the caller's home, working directory or /tmp.
 	working, _ := os.Getwd()
 	home, _ := os.UserHomeDir()
+	working, _ = filepath.EvalSymlinks(working)
+	home, _ = filepath.EvalSymlinks(home)
 	tmp, _ := filepath.EvalSymlinks(os.TempDir())
 	canonical, _ := filepath.EvalSymlinks(dir)
-	shared := dir == working || dir == home || canonical == tmp || dir == "/"
+	shared := canonical == working || canonical == home || canonical == tmp || canonical == "/"
 	if !shared {
-		if st, ok := info.Sys().(*unix.Stat_t); ok && int(st.Uid) == os.Getuid() {
+		if st, ok := info.Sys().(*syscall.Stat_t); ok && int(st.Uid) == os.Getuid() {
 			if e = os.Chmod(dir, 0700); e != nil {
 				return failure.New(1, "cannot secure state directory")
 			}

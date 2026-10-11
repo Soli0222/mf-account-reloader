@@ -28,3 +28,25 @@ func TestSelector(t *testing.T) {
 		t.Fatal(s, e)
 	}
 }
+
+func TestObservedUpdatingRequiresUniqueIdentity(t *testing.T) {
+	a := &Adapter{}
+	s := Snapshot{Accounts: []Account{
+		{ID: "unique", Status: "updating"},
+		{ID: "duplicate", Status: "updating"},
+		{ID: "duplicate", Status: "ok"},
+		{ID: "ambiguous", Status: "updating", Ambiguous: true},
+		{ID: "", Status: "updating"},
+	}}
+	a.observe(&s)
+	for i := range s.Accounts {
+		s.Accounts[i].Status = "ok"
+		s.Accounts[i].ObservedUpdating = false
+	}
+	a.observe(&s)
+	for i, x := range s.Accounts {
+		if x.ObservedUpdating != (i == 0) {
+			t.Fatalf("unexpected completion evidence for row %d: %+v", i, x)
+		}
+	}
+}

@@ -88,6 +88,9 @@ func TestUpdates(t *testing.T) {
 		code       int
 		bulk       string
 	}{
+		{name: "disabled bulk is not acceptance", site: map[string]any{"disableBeforeResponse": true, "rejectAfterDisable": true}, want: []string{"bulk"}, code: 4, bulk: "unknown"},
+		{name: "wait requires update evidence", wait: true, want: []string{"bulk"}, code: 5, bulk: "accepted"},
+		{name: "wait for delayed start", site: map[string]any{"bulkUpdating": true, "delayedBulkStart": 250, "complete": true, "completeAfter": 250}, wait: true, want: []string{"bulk"}, bulk: "completed"},
 		{name: "extra survives temporary redraw", site: map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
 		{name: "hidden updating must not skip extra", site: map[string]any{"statusTemplates": true}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
 		{name: "hidden nested status must not make row ambiguous", site: map[string]any{"statusTemplates": true, "hiddenStatusCell": true}, ids: []string{"alpha"}, want: []string{"bulk", "alpha"}, bulk: "accepted"},
@@ -165,6 +168,8 @@ func TestIndividualUpdateRedraw(t *testing.T) {
 		code    int
 	}{
 		{"temporary missing row", map[string]any{"selectedRedraw": "row", "restoreSelectedAfter": 150}, "accepted", 0},
+		{"disabled control followed by failure", map[string]any{"disableBeforeResponse": true, "rejectAfterDisable": true}, "failed", 4},
+		{"disabled control followed by unknown receipt", map[string]any{"disableBeforeResponse": true, "noReceipt": true}, "unknown", 4},
 		{"temporary missing identity", map[string]any{"selectedRedraw": "identity", "restoreSelectedAfter": 150}, "accepted", 0},
 		{"temporary duplicate row", map[string]any{"selectedRedraw": "duplicate", "restoreSelectedAfter": 150}, "accepted", 0},
 		{"temporary ambiguous control", map[string]any{"selectedRedraw": "control", "restoreSelectedAfter": 150}, "accepted", 0},
@@ -197,6 +202,47 @@ func TestIndividualUpdateRedraw(t *testing.T) {
 				t.Fatalf("requests=%v want one individual update", got)
 			}
 		})
+	}
+}
+
+func TestWaitRetainsEvidenceAcrossExtraUpdates(t *testing.T) {
+	a, events := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 400})
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	r, e := reloader.Run(ctx, a, reloader.Options{IDs: []string{"alpha", "beta"}, Wait: true, MinInterval: 600 * time.Millisecond, PollInterval: 50 * time.Millisecond})
+	if e != nil || r.Bulk != "completed" || len(r.Extra) != 2 || r.Extra[0].Status != "completed" || r.Extra[1].Status != "completed" {
+		t.Fatalf("lost update evidence across refreshes: %+v %v", r, e)
+	}
+	if got := strings.Join(events(), "|"); got != "bulk|alpha|beta" {
+		t.Fatalf("requests=%s", got)
+	}
+}
+
+func TestNewBulkDoesNotReusePreviousEvidence(t *testing.T) {
+	a, _ := setup(t, map[string]any{"bulkUpdating": true, "complete": true, "completeAfter": 400})
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	r, e := reloader.Run(ctx, a, reloader.Options{Wait: true, PollInterval: 50 * time.Millisecond})
+	if e != nil || r.Bulk != "completed" {
+		t.Fatalf("first update: %+v %v", r, e)
+	}
+	if e := a.Browser.Call(a.Browser.Context, `function(){options.bulkUpdating=false;document.getElementById('bulk').disabled=false;document.getElementById('receipt').textContent='';}`, nil, nil); e != nil {
+		t.Fatal(e)
+	}
+	// The next request has a receipt but no observed update. Inspect without
+	// navigating, so the synthetic page keeps the second request's options.
+	status, e := a.Update(ctx, nil)
+	if e != nil || status != "accepted" {
+		t.Fatal(status, e)
+	}
+	s, e := a.Snapshot(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, x := range s.Accounts {
+		if x.ObservedUpdating {
+			t.Fatal("second bulk request inherited the previous run's evidence")
+		}
 	}
 }
 
