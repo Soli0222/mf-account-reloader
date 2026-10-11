@@ -18,6 +18,7 @@ import (
 	"github.com/Soli0222/mf-account-reloader/internal/failure"
 	"github.com/Soli0222/mf-account-reloader/internal/moneyforward"
 	"github.com/Soli0222/mf-account-reloader/internal/state"
+	"github.com/chromedp/cdproto"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/network"
@@ -62,6 +63,29 @@ func interceptRequests(t *testing.T, b *browser.Browser, handler func(*network.R
 
 const emptyAccounts = `<!doctype html><table id="account-table"></table><button>金融機関からのデータ一括更新</button>`
 
+// Deterministically reproduce a navigation that destroys the CDP reply after
+// submission. The unsent variant proves that a lost reply is not itself success.
+type lostReplyBrowser struct {
+	*browser.Browser
+	kind   string
+	unsent bool
+	calls  int
+}
+
+func (b *lostReplyBrowser) Call(ctx context.Context, fn string, arg, out any) error {
+	v, ok := arg.(map[string]string)
+	if !ok || v["kind"] != b.kind {
+		return b.Browser.Call(ctx, fn, arg, out)
+	}
+	b.calls++
+	if !b.unsent {
+		if e := b.Browser.Call(ctx, fn, arg, out); e != nil {
+			return e
+		}
+	}
+	return &cdproto.Error{Code: -32000, Message: "Execution context was destroyed."}
+}
+
 func TestCookieAndOriginState(t *testing.T) {
 	ctx := context.Background()
 	b := newBrowser(t, ctx)
@@ -76,7 +100,7 @@ func TestCookieAndOriginState(t *testing.T) {
 		t.Fatal(e)
 	}
 	for _, origin := range []string{"https://id.moneyforward.com", "https://moneyforward.com"} {
-		if e := b.Navigate(ctx, origin+"/accounts", time.Second); e != nil {
+		if e := b.Navigate(ctx, origin+"/accounts", testNavigationTimeout); e != nil {
 			t.Fatal(e)
 		}
 		var before string
@@ -107,9 +131,9 @@ func TestCookieAndOriginState(t *testing.T) {
 	}
 }
 func TestAutomaticAuthentication(t *testing.T) {
-	for _, scenario := range []string{"password", "otp", "otp-failure", "missing-otp-secret", "invalid-totp", "fake-origin", "account-selector", "captcha", "expired"} {
+	for _, scenario := range []string{"password", "otp", "otp-failure", "missing-otp-secret", "invalid-totp", "fake-origin", "account-selector", "captcha", "expired", "lost-email-reply", "lost-password-reply", "lost-otp-reply", "lost-selection-reply", "lost-unsent-reply", "delayed-redirect"} {
 		t.Run(scenario, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
 			defer cancel()
 			b := newBrowser(t, ctx)
 			var mu sync.Mutex
@@ -131,6 +155,9 @@ func TestAutomaticAuthentication(t *testing.T) {
 					if logged {
 						return emptyAccounts, 200, nil
 					}
+					if scenario == "delayed-redirect" {
+						time.Sleep(1200 * time.Millisecond)
+					}
 					if scenario == "expired" {
 						return `<input type="password">`, 200, nil
 					}
@@ -142,13 +169,16 @@ func TestAutomaticAuthentication(t *testing.T) {
 					if scenario == "captcha" {
 						return `<div>CAPTCHA</div>`, 200, nil
 					}
-					if scenario == "account-selector" {
+					if scenario == "account-selector" || scenario == "lost-selection-reply" {
 						return `<button onclick="location.href='/email'">synthetic@example.invalid</button>`, 200, nil
 					}
 					return form(`name="mfid_user[email]"`, "https://id.moneyforward.com/password"), 200, nil
 				case "/email":
 					return form(`name="mfid_user[email]"`, "https://id.moneyforward.com/password"), 200, nil
 				case "/password":
+					if scenario == "delayed-redirect" {
+						time.Sleep(500 * time.Millisecond)
+					}
 					next := "https://moneyforward.com/done"
 					if strings.Contains(scenario, "otp") {
 						next = "https://id.moneyforward.com/otp"
@@ -166,8 +196,17 @@ func TestAutomaticAuthentication(t *testing.T) {
 					return "", 200, nil
 				}
 			})
-			adapter := moneyforward.New(b, time.Second, 300*time.Millisecond)
-			m := auth.Manager{Browser: b, Accounts: adapter, LoginTimeout: 1500 * time.Millisecond}
+			adapter := moneyforward.New(b, testNavigationTimeout, testActionTimeout)
+			m := auth.Manager{Browser: b, Accounts: adapter, LoginTimeout: testLoginTimeout}
+			var lost *lostReplyBrowser
+			if strings.HasPrefix(scenario, "lost-") {
+				kind := strings.TrimSuffix(strings.TrimPrefix(scenario, "lost-"), "-reply")
+				lost = &lostReplyBrowser{Browser: b, kind: kind}
+				if kind == "unsent" {
+					lost.kind, lost.unsent = "email", true
+				}
+				m.Browser = lost
+			}
 			creds := config.Credentials{Email: "synthetic@example.invalid", Password: "synthetic", TOTPSecret: "JBSWY3DPEHPK3PXP"}
 			if scenario == "missing-otp-secret" {
 				creds.TOTPSecret = ""
@@ -177,11 +216,14 @@ func TestAutomaticAuthentication(t *testing.T) {
 			}
 			e := m.Ensure(ctx, false, scenario != "expired", creds)
 			expected := 0
-			if scenario == "otp-failure" || scenario == "missing-otp-secret" || scenario == "invalid-totp" || scenario == "fake-origin" || scenario == "captcha" || scenario == "expired" {
+			if scenario == "otp-failure" || scenario == "missing-otp-secret" || scenario == "invalid-totp" || scenario == "fake-origin" || scenario == "captcha" || scenario == "expired" || scenario == "lost-unsent-reply" {
 				expected = 3
 			}
 			if failure.Code(e) != expected {
 				t.Fatalf("code=%d expected=%d: %v", failure.Code(e), expected, e)
+			}
+			if lost != nil && lost.calls != 1 {
+				t.Fatalf("uncertain stage submitted %d times", lost.calls)
 			}
 			mu.Lock()
 			defer mu.Unlock()
@@ -242,8 +284,11 @@ func TestEmptyAccountsAndStructureMismatch(t *testing.T) {
 				}
 				return `<p>unrecognized account screen</p>`, 200, nil
 			})
-			a := moneyforward.New(b, 300*time.Millisecond, 100*time.Millisecond)
-			m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: time.Second}
+			a := moneyforward.New(b, testNavigationTimeout, testActionTimeout)
+			if !valid {
+				a.Navigation = time.Second // Deliberately test a structure deadline.
+			}
+			m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: testLoginTimeout}
 			e := m.Ensure(context.Background(), false, false, config.Credentials{})
 			code := 0
 			if !valid {
@@ -265,7 +310,7 @@ func TestHeadlessSessionReuse(t *testing.T) {
 	intercept(t, first, func(string) (string, int, []*fetch.HeaderEntry) {
 		return emptyAccounts, 200, []*fetch.HeaderEntry{{Name: "Set-Cookie", Value: "synthetic_session=valid; Secure; HttpOnly; Path=/; SameSite=Lax"}}
 	})
-	if e := first.Navigate(ctx, moneyforward.AccountsURL, time.Second); e != nil {
+	if e := first.Navigate(ctx, moneyforward.AccountsURL, testNavigationTimeout); e != nil {
 		t.Fatal(e)
 	}
 	captured, e := first.Capture(first.Context)
@@ -307,8 +352,8 @@ func TestHeadlessSessionReuse(t *testing.T) {
 	if e = second.Restore(second.Context, saved); e != nil {
 		t.Fatal(e)
 	}
-	adapter := moneyforward.New(second, time.Second, time.Second)
-	manager := auth.Manager{Browser: second, Accounts: adapter, LoginTimeout: time.Second}
+	adapter := moneyforward.New(second, testNavigationTimeout, testActionTimeout)
+	manager := auth.Manager{Browser: second, Accounts: adapter, LoginTimeout: testLoginTimeout}
 	if e = manager.Ensure(ctx, false, false, config.Credentials{}); e != nil {
 		t.Fatalf("headless replay rejected: %v", e)
 	}
@@ -329,8 +374,8 @@ func TestDocumentResponseAuthentication(t *testing.T) {
 				}
 				return emptyAccounts, status, nil
 			})
-			a := moneyforward.New(b, time.Second, time.Second)
-			m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: time.Second}
+			a := moneyforward.New(b, testNavigationTimeout, testActionTimeout)
+			m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: testLoginTimeout}
 			auto := status == 403
 			e := m.Ensure(context.Background(), false, auto, config.Credentials{Email: "synthetic@example.invalid", Password: "synthetic"})
 			want := 1
@@ -366,8 +411,8 @@ func TestForbiddenSubframeDoesNotInvalidateSession(t *testing.T) {
 		}
 		return emptyAccounts + `<iframe src="/denied"></iframe>`, 200, nil
 	})
-	a := moneyforward.New(b, time.Second, time.Second)
-	m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: time.Second}
+	a := moneyforward.New(b, testNavigationTimeout, testActionTimeout)
+	m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: testLoginTimeout}
 	if e := m.Ensure(context.Background(), false, false, config.Credentials{}); e != nil {
 		t.Fatal("subframe affected top-level authentication", e)
 	}
@@ -382,8 +427,8 @@ func TestInteractiveChallengeNavigationClearsDeniedStatus(t *testing.T) {
 		}
 		return `<script>setTimeout(()=>location.href='/accounts?ready=1',150)</script>`, 403, nil
 	})
-	a := moneyforward.New(b, time.Second, time.Second)
-	m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: 2 * time.Second}
+	a := moneyforward.New(b, testNavigationTimeout, testActionTimeout)
+	m := auth.Manager{Browser: b, Accounts: a, LoginTimeout: testLoginTimeout}
 	if e := m.Ensure(context.Background(), true, false, config.Credentials{}); e != nil {
 		t.Fatal("new document retained old denial status", e)
 	}

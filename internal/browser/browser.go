@@ -13,6 +13,7 @@ import (
 	"github.com/Soli0222/mf-account-reloader/internal/config"
 	"github.com/Soli0222/mf-account-reloader/internal/failure"
 	"github.com/Soli0222/mf-account-reloader/internal/state"
+	"github.com/chromedp/cdproto"
 	browserproto "github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/domstorage"
@@ -209,7 +210,38 @@ func (b *Browser) Call(ctx context.Context, fn string, arg, out any) error {
 	return nil
 }
 func (b *Browser) URL(ctx context.Context) (string, error) {
-	return chromedp.Run(ctx, chromedp.Location())
+	var url string
+	e := b.Read(ctx, `function(){return location.href}`, nil, &url)
+	return url, e
+}
+
+// NavigationInterrupted identifies CDP reads/calls whose execution context was
+// replaced by navigation. It does not imply that a mutating call was not sent.
+func NavigationInterrupted(err error) bool {
+	var protocol *cdproto.Error
+	if !errors.As(err, &protocol) || protocol.Code != -32000 {
+		return false
+	}
+	for _, message := range []string{"Execution context was destroyed", "Cannot find context with specified id", "Could not find object with given id", "Inspected target navigated or closed"} {
+		if strings.Contains(protocol.Message, message) {
+			return true
+		}
+	}
+	return false
+}
+
+// Read retries only read-only scripts interrupted by navigation, within ctx's
+// deadline. Submissions and clicks must use Call and must never be retried here.
+func (b *Browser) Read(ctx context.Context, fn string, arg, out any) error {
+	for {
+		e := b.Call(ctx, fn, arg, out)
+		if !NavigationInterrupted(e) || b.Context.Err() != nil {
+			return e
+		}
+		if e = Pause(ctx, 50*time.Millisecond); e != nil {
+			return e
+		}
+	}
 }
 func (b *Browser) Restore(ctx context.Context, s state.State) error {
 	b.mu.Lock()
