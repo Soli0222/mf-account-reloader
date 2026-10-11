@@ -57,11 +57,13 @@ class Triage(unittest.TestCase):
                 git('-c','commit.gpgsign=false','-c','user.name=Validation','-c','user.email=validation@example.invalid','commit','-qm','change')
                 return git('rev-parse','HEAD')
             before=commit('name: demo\ndescription: some words\nversion: 0.1.0\nappVersion: "0.1.0"\n')
+            formatted=commit("name: demo\ndescription: some words\nversion: 0.1.0\nappVersion: '0.1.0'\n")
             after=commit('name: demo\ndescription: >-\n  some words\nversion: 0.1.0\nappVersion: "0.2.0"\n')
             output=cwd/'output'
             def triage(before,after):
                 env=dict(os.environ,EVENT='push',BEFORE=before,AFTER=after,GITHUB_OUTPUT=str(output))
                 return subprocess.check_output(['python3',str(ROOT/'scripts/chart-triage.py')],cwd=directory,env=env,text=True).strip()
+            self.assertEqual(triage(before,formatted),'run=false')
             self.assertEqual(triage(before,after),'run=false')
             newer=commit('name: demo\ndescription: changed words\nversion: 0.2.0\nappVersion: "0.2.0"\n')
             self.assertEqual(triage(after,newer),'run=true')
