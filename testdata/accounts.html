@@ -39,6 +39,10 @@ function render(){
 }
 async function update(id){
  if(options.dialog&&!confirm(options.dialog))return;
+ if(id===null&&options.bulkPostNavigation){
+  const form=document.createElement('form');form.method='POST';form.action='/accounts';document.body.append(form);form.submit();return;
+ }
+ if(id===null&&options.optimisticBulk)showOptimisticBulk();
  if(options.disableBeforeResponse){
   const control=id===null?document.getElementById('bulk'):[...document.querySelectorAll('#rows tr')].find(r=>r.querySelector('a[href="/accounts/show/'+encodeURIComponent(id)+'"]')).querySelector('button:last-child');
   control.disabled=true;
@@ -69,9 +73,23 @@ async function update(id){
  if(id===null&&options.bulkUpdating){
   sessionStorage.setItem('startAt',String(Date.now()+(options.delayedBulkStart||0)));startLater();
  }
+ if(id===null&&options.optimisticBulk)showOptimisticBulk();
+}
+// The click page shows every linked row as updating, but this display is not
+// persisted. Reloading restores the actual states, including excluded rows.
+function showOptimisticBulk(){
+ for(const row of document.getElementById('rows').children){
+  row.querySelector('.account-status').textContent='更新中';
+  for(const control of row.querySelectorAll('button,input[type="submit"]'))if(control.textContent==='更新'||control.value==='更新')control.disabled=true;
+ }
 }
 function startLater(){if(sessionStorage.getItem('startAt')){
- const start=()=>{sessionStorage.removeItem('startAt');for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending','1');render()};
+ const start=()=>{
+  sessionStorage.removeItem('startAt');
+  for(const a of accounts)if(!(options.bulkExcluded||[]).includes(a.id))a.status=options.bulkCompletesImmediately?'正常':'更新中';
+  if(!options.bulkCompletesImmediately)sessionStorage.setItem('pending','1');
+  render();
+ };
  const delay=Number(sessionStorage.getItem('startAt'))-Date.now();if(delay>0)setTimeout(start,delay);else start();
 }}
 // The test driver calls this only after the adapter observes updating. Pending

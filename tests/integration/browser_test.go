@@ -33,8 +33,23 @@ func setup(t *testing.T, options map[string]any) (*moneyforward.Adapter, func() 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/accounts":
+			if options["recordReload"] == true {
+				name := "reload"
+				if r.Method == "POST" {
+					name = "post"
+				}
+				mu.Lock()
+				events = append(events, name)
+				mu.Unlock()
+			}
+			if options["cacheAccounts"] == true {
+				w.Header().Set("Cache-Control", "public, max-age=3600")
+			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = w.Write([]byte(strings.Replace(testdata.Accounts, "OPTIONS", string(data), 1)))
+			if r.Method == "POST" && options["bulkPostNavigation"] == true {
+				_, _ = w.Write([]byte(`<script>document.getElementById('receipt').textContent='更新要求を受け付けました';</script>`))
+			}
 		case "/update":
 			var v struct {
 				ID *string `json:"id"`
@@ -201,6 +216,108 @@ func TestReadOnlyCommands(t *testing.T) {
 	}
 	if len(events()) != 0 {
 		t.Fatalf("read-only commands sent updates: %v", events())
+	}
+}
+
+func TestBulkReloadDiscardsOptimisticStatus(t *testing.T) {
+	a, events := setup(t, map[string]any{
+		"optimisticBulk": true, "bulkUpdating": true, "bulkExcluded": []string{"alpha"},
+		"recordReload": true, "cacheAccounts": true,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
+	defer cancel()
+	status, e := a.Update(ctx, nil)
+	if e != nil || status != "accepted" {
+		t.Fatal(status, e)
+	}
+	// Snapshot must reload before presenting states to extra-update decisions or
+	// recording completion evidence. Alpha's bulk updating display was cosmetic.
+	s, e := a.Snapshot(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, x := range s.Accounts {
+		if x.ID == "alpha" && (x.Status != "ok" || !x.CanUpdate || x.ObservedUpdating) {
+			t.Fatalf("excluded account inherited optimistic bulk state: %+v", x)
+		}
+		if x.ID == "beta" && (x.Status != "updating" || !x.ObservedUpdating) {
+			t.Fatalf("actual bulk update lost its evidence: %+v", x)
+		}
+	}
+	id := "alpha"
+	status, e = a.Update(ctx, &id)
+	if e != nil || status != "accepted" {
+		t.Fatal(status, e)
+	}
+	if got := strings.Join(events(), "|"); got != "reload|bulk|reload|alpha" {
+		t.Fatalf("requests=%s want initial load, bulk, fresh reload, extra", got)
+	}
+}
+
+func TestExtrasUseReloadedBulkState(t *testing.T) {
+	a, events := setup(t, map[string]any{
+		"optimisticBulk": true, "bulkUpdating": true, "bulkExcluded": []string{"alpha"},
+		"recordReload": true, "cacheAccounts": true,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
+	defer cancel()
+	r, e := reloader.Run(ctx, a, reloader.Options{IDs: []string{"alpha", "beta"}, MinInterval: time.Millisecond})
+	if e != nil || r.Bulk != "accepted" || len(r.Extra) != 2 || r.Extra[0].Status != "accepted" || r.Extra[1].Status != "already_updating" {
+		t.Fatalf("extra decisions used the click page: %+v %v", r, e)
+	}
+	if got := strings.Join(events(), "|"); got != "reload|bulk|reload|alpha|reload" {
+		t.Fatalf("requests=%s want bulk then reload before each extra", got)
+	}
+}
+
+func TestBulkAcceptanceSurvivesCompletionBeforeReload(t *testing.T) {
+	a, events := setup(t, map[string]any{
+		"optimisticBulk": true, "bulkUpdating": true, "bulkCompletesImmediately": true,
+		"recordReload": true,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
+	defer cancel()
+	status, e := a.Update(ctx, nil)
+	if e != nil || status != "accepted" {
+		t.Fatal(status, e)
+	}
+	s, e := a.Snapshot(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, x := range s.Accounts {
+		if x.Automatic && (x.Status != "ok" || x.ObservedUpdating) {
+			t.Fatalf("normal after reload was mistaken for observed completion: %+v", x)
+		}
+	}
+	if got := strings.Join(events(), "|"); got != "reload|bulk|reload" {
+		t.Fatalf("requests=%s; acceptance must not require another click", got)
+	}
+}
+
+func TestBulkOptimisticStatusCannotProveCompletion(t *testing.T) {
+	a, _ := setup(t, map[string]any{"optimisticBulk": true, "bulkUpdating": true, "bulkExcluded": []string{"alpha"}, "complete": true})
+	ctx, cancel := context.WithTimeout(context.Background(), testNavigationTimeout)
+	defer cancel()
+	r, e := reloader.Run(ctx, &completingPage{Adapter: a}, reloader.Options{Wait: true, PollInterval: 50 * time.Millisecond})
+	if failure.Code(e) != 5 || r.Bulk != "accepted" {
+		t.Fatalf("cosmetic updating completed a skipped account: %+v %v", r, e)
+	}
+}
+
+func TestBulkReloadDoesNotResubmitForm(t *testing.T) {
+	a, events := setup(t, map[string]any{"bulkPostNavigation": true, "recordReload": true})
+	ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
+	defer cancel()
+	status, e := a.Update(ctx, nil)
+	if e != nil || status != "accepted" {
+		t.Fatal(status, e)
+	}
+	if _, e := a.Snapshot(ctx); e != nil {
+		t.Fatal(e)
+	}
+	if got := strings.Join(events(), "|"); got != "reload|post|reload" {
+		t.Fatalf("requests=%s want one POST followed by a GET reload", got)
 	}
 }
 

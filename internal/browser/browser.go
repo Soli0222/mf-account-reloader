@@ -167,9 +167,26 @@ func (b *Browser) Bound(ctx context.Context, d time.Duration) (context.Context, 
 	return operationContext{c, context.WithoutCancel(b.Context)}, func() { stop(); cancel() }
 }
 func (b *Browser) Navigate(ctx context.Context, url string, d time.Duration) error {
+	return b.load(ctx, d, func(c context.Context) (*network.Response, error) {
+		return chromedp.Run(c, chromedp.NavigateResponse(url))
+	})
+}
+
+// Reload fetches the URL with GET, bypassing cache without replaying a form POST.
+func (b *Browser) Reload(ctx context.Context, url string, d time.Duration) error {
+	return b.load(ctx, d, func(c context.Context) (*network.Response, error) {
+		if _, e := chromedp.Call(c, network.SetCacheDisabled, network.SetCacheDisabledParams{CacheDisabled: true}); e != nil {
+			return nil, e
+		}
+		defer chromedp.Call(c, network.SetCacheDisabled, network.SetCacheDisabledParams{CacheDisabled: false})
+		return chromedp.Run(c, chromedp.NavigateResponse(url))
+	})
+}
+
+func (b *Browser) load(ctx context.Context, d time.Duration, action func(context.Context) (*network.Response, error)) error {
 	for attempt := 0; attempt < 2; attempt++ {
 		c, cancel := b.Bound(ctx, d)
-		response, e := chromedp.Run(c, chromedp.NavigateResponse(url))
+		response, e := action(c)
 		if e == nil && response != nil {
 			if tree, err := chromedp.Call(c, page.GetFrameTree, cdp.Empty{}); err == nil && tree.FrameTree != nil && tree.FrameTree.Frame != nil {
 				b.documentStatuses.Store(tree.FrameTree.Frame.LoaderID, int(response.Status))
