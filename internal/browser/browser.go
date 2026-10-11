@@ -133,8 +133,20 @@ func (b *Browser) Close() {
 	}
 }
 func (b *Browser) Bound(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
-	c, cancel := context.WithTimeout(b.Context, d)
-	stop := context.AfterFunc(ctx, cancel)
+	deadline := time.Now().Add(d)
+	if callerDeadline, ok := ctx.Deadline(); ok && callerDeadline.Before(deadline) {
+		deadline = callerDeadline
+	}
+	c, cancel := context.WithDeadline(b.Context, deadline)
+	// Let the deadline expire naturally: cancel() would turn DeadlineExceeded
+	// into Canceled, making the exit code depend on which operation was active.
+	cancelCaller := func() {
+		if ctx.Err() == context.Canceled {
+			cancel()
+		}
+	}
+	stop := context.AfterFunc(ctx, cancelCaller)
+	cancelCaller() // An already canceled caller must not start a new operation.
 	return c, func() { stop(); cancel() }
 }
 func (b *Browser) Navigate(ctx context.Context, url string, d time.Duration) error {

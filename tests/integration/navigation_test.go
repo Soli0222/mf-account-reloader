@@ -76,3 +76,24 @@ func TestReadDoesNotRetryScriptFailures(t *testing.T) {
 		t.Fatalf("script retried: attempts=%d error=%v", attempts, e)
 	}
 }
+
+func TestBrowserCallPreservesCallerDeadline(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), testRunTimeout)
+	defer cancel()
+	b := newBrowser(t, ctx)
+	caller, stopCaller := context.WithTimeout(ctx, testActionTimeout)
+	defer stopCaller()
+	c, stop := b.Bound(caller, testNavigationTimeout)
+	defer stop()
+	// Keep a real CDP request in flight until the caller's shorter deadline.
+	err := b.Call(c, `function(){window.deadlineCallStarted=true;return new Promise(()=>{})}`, nil, nil)
+	if failure.Code(err) != 5 || failure.Safe(err) != "operation deadline exceeded" {
+		t.Fatalf("caller deadline misclassified: %v (code %d)", err, failure.Code(err))
+	}
+	check, stopCheck := b.Bound(ctx, testActionTimeout)
+	defer stopCheck()
+	var started bool
+	if err := b.Read(check, `function(){return window.deadlineCallStarted===true}`, nil, &started); err != nil || !started {
+		t.Fatalf("call must start and browser must remain usable: started=%v error=%v", started, err)
+	}
+}
