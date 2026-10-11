@@ -1,0 +1,26 @@
+.agents
+.codex
+.aws
+data
+bin
+dist
+.env*
+**/*auth-state*.json
+**/*profile*
+**/*secret*
+**/*.pem
+**/*.key
+**/*.png
+**/*.jpg
+coverage*
+# VCS objects/HEAD/index are retained for Go build info; credential-bearing config is excluded.
+.git/config
+.git/hooks
+.git/logs
+.git/COMMIT_EDITMSG
+.git/FETCH_HEAD
+.git/ORIG_HEAD
+config.yaml
+deploy-values.yaml
+container-state
+credentials

@@ -1,0 +1,7 @@
+# Container defaults. Explicit --config selects the supplied YAML instead.
+auth:
+  stateFile: /state/auth-state.json
+browser:
+  executablePath: /usr/bin/chromium
+  headless: true
+  noSandbox: true

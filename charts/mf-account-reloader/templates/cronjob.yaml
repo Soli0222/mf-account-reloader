@@ -1,0 +1,139 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "mfr.fullname" . }}
+  labels:
+    {{- include "mfr.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  timeZone: {{ .Values.timeZone | quote }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  suspend: {{ .Values.suspend }}
+  startingDeadlineSeconds: {{ .Values.startingDeadlineSeconds }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "mfr.labels" . | nindent 12 }}
+        spec:
+          serviceAccountName: {{ include "mfr.serviceAccount" . }}
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: reloader
+              image: {{ printf "%s:%s" .Values.image.repository (default .Chart.AppVersion .Values.image.tag) | quote }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args: [run, --config, /config/config.yaml]
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              env:
+                - name: HOME
+                  value: /tmp/home
+                - name: XDG_CACHE_HOME
+                  value: /tmp/cache
+                {{- if and .Values.auth.existingSecret .Values.auth.keys.email }}
+                - name: MFR_EMAIL_FILE
+                  value: /credentials/email
+                {{- end }}
+                {{- if and .Values.auth.existingSecret .Values.auth.keys.password }}
+                - name: MFR_PASSWORD_FILE
+                  value: /credentials/password
+                {{- end }}
+                {{- if and .Values.auth.existingSecret .Values.auth.keys.totpSecret }}
+                - name: MFR_TOTP_SECRET_FILE
+                  value: /credentials/totp-secret
+                {{- end }}
+                {{- with .Values.env }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+                - name: state
+                  mountPath: /state
+                - name: tmp
+                  mountPath: /tmp
+                - name: shm
+                  mountPath: /dev/shm
+                {{- if .Values.auth.stateSecret.name }}
+                - name: seed
+                  mountPath: /seed
+                  readOnly: true
+                {{- end }}
+                {{- if and .Values.auth.existingSecret (or .Values.auth.keys.email .Values.auth.keys.password .Values.auth.keys.totpSecret) }}
+                - name: credentials
+                  mountPath: /credentials
+                  readOnly: true
+                {{- end }}
+          volumes:
+            - name: config
+              configMap:
+                name: {{ include "mfr.fullname" . }}-config
+            - name: state
+              {{- if .Values.persistence.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ default (printf "%s-state" (include "mfr.fullname" .)) .Values.persistence.existingClaim }}
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+            - name: tmp
+              emptyDir: {}
+            - name: shm
+              emptyDir:
+                medium: Memory
+                sizeLimit: {{ .Values.shmSize }}
+            {{- if .Values.auth.stateSecret.name }}
+            - name: seed
+              secret:
+                secretName: {{ .Values.auth.stateSecret.name }}
+                defaultMode: 0440
+                items:
+                  - key: {{ .Values.auth.stateSecret.key }}
+                    path: auth-state.json
+            {{- end }}
+            {{- if and .Values.auth.existingSecret (or .Values.auth.keys.email .Values.auth.keys.password .Values.auth.keys.totpSecret) }}
+            - name: credentials
+              secret:
+                secretName: {{ .Values.auth.existingSecret }}
+                defaultMode: 0440
+                items:
+                  {{- if .Values.auth.keys.email }}
+                  - key: {{ .Values.auth.keys.email }}
+                    path: email
+                  {{- end }}
+                  {{- if .Values.auth.keys.password }}
+                  - key: {{ .Values.auth.keys.password }}
+                    path: password
+                  {{- end }}
+                  {{- if .Values.auth.keys.totpSecret }}
+                  - key: {{ .Values.auth.keys.totpSecret }}
+                    path: totp-secret
+                  {{- end }}
+            {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

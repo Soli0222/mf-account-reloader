@@ -1,0 +1,80 @@
+nameOverride: ""
+fullnameOverride: ""
+schedule: "0 11 * * *"
+timeZone: Asia/Tokyo
+concurrencyPolicy: Forbid
+suspend: false
+startingDeadlineSeconds: 600
+successfulJobsHistoryLimit: 1
+failedJobsHistoryLimit: 3
+backoffLimit: 0
+activeDeadlineSeconds: 900
+terminationGracePeriodSeconds: 30
+image:
+  repository: ghcr.io/soli0222/mf-account-reloader
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+config:
+  auth:
+    stateFile: /state/auth-state.json
+    seedFile: ""
+    autoLogin: false
+  browser:
+    executablePath: /usr/bin/chromium
+    headless: true
+    noSandbox: true
+  reload:
+    extraAccountIds: []
+    extraAccountNames: []
+    wait: false
+    pollInterval: 10s
+  timeouts:
+    navigation: 30s
+    action: 15s
+    login: 5m
+    run: 10m
+  log:
+    format: json
+    level: info
+auth:
+  existingSecret: ""
+  keys:
+    email: ""
+    password: ""
+    totpSecret: ""
+  stateSecret:
+    name: ""
+    key: auth-state.json
+persistence:
+  enabled: true
+  existingClaim: ""
+  size: 1Gi
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+shmSize: 256Mi
+env: []
+nodeSelector: {}
+tolerations: []
+affinity: {}

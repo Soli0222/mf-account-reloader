@@ -1,0 +1,7 @@
+CronJob: {{ include "mfr.fullname" . }}
+Schedule: {{ .Values.schedule }} ({{ .Values.timeZone }})
+Manual run:
+  kubectl create job --from=cronjob/{{ include "mfr.fullname" . }} mfr-manual-$(date +%s) --namespace {{ .Release.Namespace }}
+{{- if not .Values.auth.stateSecret.name }}
+No seed Secret configured. Initialize /state/auth-state.json or configure authentication before running.
+{{- end }}

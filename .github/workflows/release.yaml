@@ -1,0 +1,72 @@
+name: Release Pipeline
+
+# release-please → multi-arch image → latest main Chart reconciliation.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release-created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.RENOVATE_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_PRIVATE_KEY }}
+
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          token: ${{ steps.app-token.outputs.token }}
+
+  publish-image:
+    name: Publish Application Image
+    needs: release-please
+    if: needs.release-please.outputs.release-created == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: Soli0222/shared-workflows/.github/workflows/publish-image.yaml@119de6bc19fdd3e2d77f0decb8bd5bd976a7a645 # main
+    with:
+      ref: ${{ needs.release-please.outputs.sha }}
+      version: ${{ needs.release-please.outputs.version }}
+      platforms: linux/amd64,linux/arm64
+
+  # image が publish できてから chart を動かす。chart は「この release の chart」を
+  # 作るのではなく、main 上の最新 chart を OCI へ収束させる調停処理なので inputs に
+  # release の version は渡さない。
+  publish-chart:
+    name: Publish Helm Chart
+    needs: [release-please, publish-image]
+    permissions:
+      contents: write
+      packages: write
+    uses: Soli0222/shared-workflows/.github/workflows/publish-chart.yaml@119de6bc19fdd3e2d77f0decb8bd5bd976a7a645 # main
+
+  report-chart:
+    name: Report chart result
+    needs: publish-chart
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.publish-chart.outputs.result }}
+          VERSION: ${{ needs.publish-chart.outputs.version }}
+        run: echo "Chart result=$RESULT version=$VERSION" >> "$GITHUB_STEP_SUMMARY"

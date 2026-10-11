@@ -1,0 +1,231 @@
+package moneyforward
+
+import (
+	"context"
+	_ "embed"
+	"net/url"
+	"time"
+
+	"github.com/Soli0222/mf-account-reloader/internal/browser"
+	"github.com/Soli0222/mf-account-reloader/internal/failure"
+)
+
+//go:embed dom.js
+var dom string
+
+const AccountsURL = "https://moneyforward.com/accounts"
+
+type Adapter struct {
+	Browser            *browser.Browser
+	AccountsURL        string
+	Navigation, Action time.Duration
+}
+
+func New(b *browser.Browser, nav, action time.Duration) *Adapter {
+	return &Adapter{b, AccountsURL, nav, action}
+}
+func SameAccountsURL(raw, expected string) bool {
+	u, e := url.Parse(raw)
+	v, f := url.Parse(expected)
+	return e == nil && f == nil && u.User == nil && u.Scheme == v.Scheme && u.Host == v.Host && (u.Path == v.Path || u.Path == v.Path+"/")
+}
+func (a *Adapter) Probe(ctx context.Context) (Snapshot, bool, error) {
+	c, cancel := a.Browser.Bound(ctx, a.Action)
+	defer cancel()
+	var s Snapshot
+	u, e := a.Browser.URL(c)
+	if e != nil {
+		return s, false, e
+	}
+	if !SameAccountsURL(u, a.AccountsURL) {
+		return s, false, nil
+	}
+	status, e := a.Browser.DocumentStatus(c)
+	if e != nil {
+		return s, false, e
+	}
+	if e = browser.ResponseError(status); e != nil {
+		return s, false, e
+	}
+	e = a.Browser.Call(c, `function(arg){const adapter=`+dom+`;return adapter.snapshot()}`, nil, &s)
+	return s, s.Structure && !s.Login, e
+}
+func (a *Adapter) Snapshot(ctx context.Context) (Snapshot, error) {
+	s, ok, e := a.Probe(ctx)
+	if e != nil {
+		if failure.Code(e) == 3 {
+			return s, e
+		}
+		if ctx.Err() != nil {
+			return s, ctx.Err()
+		}
+		if a.Browser.Context.Err() != nil {
+			return s, failure.New(1, "browser closed")
+		}
+		return s, failure.New(4, "cannot read account page")
+	}
+	if !ok {
+		if s.Structure && !s.Login {
+			return s, failure.New(4, "account page structure mismatch")
+		}
+		return s, failure.New(3, "account page is not authenticated or its structure is missing")
+	}
+	return s, nil
+}
+func (a *Adapter) Refresh(ctx context.Context) (Snapshot, error) {
+	if e := a.Browser.Navigate(ctx, a.AccountsURL, a.Navigation); e != nil {
+		return Snapshot{}, e
+	}
+	c, cancel := context.WithTimeout(ctx, a.Navigation)
+	defer cancel()
+	for {
+		s, ok, e := a.Probe(c)
+		if e != nil {
+			if failure.Code(e) == 3 {
+				return s, e
+			}
+			if ctx.Err() != nil {
+				return s, ctx.Err()
+			}
+			return s, failure.New(4, "cannot read account page")
+		}
+		if ok {
+			return s, nil
+		}
+		if s.Login {
+			return s, failure.New(3, "authentication expired")
+		}
+		u, e := a.Browser.URL(a.Browser.Context)
+		if e != nil {
+			return s, failure.New(1, "browser unavailable")
+		}
+		if !SameAccountsURL(u, a.AccountsURL) {
+			return s, failure.New(3, "authentication expired")
+		}
+		if e = browser.Pause(c, 100*time.Millisecond); e != nil {
+			if ctx.Err() != nil {
+				return s, ctx.Err()
+			}
+			return s, failure.New(4, "account page structure mismatch")
+		}
+	}
+}
+func uniqueAccount(s Snapshot, id string) (Account, bool) {
+	var result Account
+	n := 0
+	for _, x := range s.Accounts {
+		if x.ID == id {
+			result = x
+			n++
+		}
+	}
+	return result, n == 1
+}
+func (a *Adapter) Update(ctx context.Context, id *string) (string, error) {
+	before, e := a.Snapshot(ctx)
+	if e != nil {
+		return "unknown", e
+	}
+	if id != nil {
+		x, ok := uniqueAccount(before, *id)
+		if !ok || x.Ambiguous {
+			return "failed", failure.New(4, "selected account disappeared or became ambiguous")
+		}
+		if x.Status == "updating" {
+			return "already_updating", nil
+		}
+		if !x.CanUpdate {
+			return "failed", failure.New(4, "individual update is unavailable")
+		}
+	} else {
+		if before.BulkCount != 1 {
+			return "failed", failure.New(4, "bulk update control is missing or ambiguous")
+		}
+		if !before.BulkEnabled {
+			n := 0
+			all := true
+			for _, x := range before.Accounts {
+				if x.Automatic && x.Status != "suspended" && x.Status != "auth_required" {
+					n++
+					all = all && x.Status == "updating"
+				}
+			}
+			if n > 0 && all {
+				return "already_updating", nil
+			}
+			return "unknown", failure.New(4, "bulk update is unavailable without evidence of an active update")
+		}
+	}
+	a.Browser.BeginUpdate(id == nil)
+	defer a.Browser.EndUpdate()
+	c, cancel := a.Browser.Bound(ctx, a.Action)
+	var clicked struct {
+		Clicked bool   `json:"clicked"`
+		Error   string `json:"error"`
+	}
+	e = a.Browser.Call(c, `function(arg){const adapter=`+dom+`;return adapter.click(arg)}`, map[string]any{"id": id}, &clicked)
+	cancel()
+	if ctx.Err() != nil {
+		return "unknown", ctx.Err()
+	}
+	if clicked.Error != "" {
+		return "failed", failure.New(4, "update control changed before click")
+	}
+	// A navigation can interrupt CDP while clicking. Never retry the operation.
+	_ = e
+	deadline, done := context.WithTimeout(ctx, a.Action)
+	defer done()
+	for {
+		if a.Browser.Context.Err() != nil {
+			return "unknown", failure.New(1, "browser closed during update")
+		}
+		if a.Browser.UnexpectedDialog() {
+			return "failed", failure.New(4, "unexpected dialog was dismissed")
+		}
+		after, ok, pe := a.Probe(deadline)
+		if pe != nil && failure.Code(pe) == 3 {
+			return "failed", pe
+		}
+		if pe == nil && ok {
+			if id == nil {
+				transition := false
+				for _, x := range after.Accounts {
+					old, found := uniqueAccount(before, x.ID)
+					if found && old.Status != "updating" && x.Status == "updating" {
+						transition = true
+					}
+				}
+				if after.Receipt != "" && after.Receipt != before.Receipt || before.BulkEnabled && !after.BulkEnabled && after.BulkCount == 1 || transition {
+					return "accepted", nil
+				}
+			} else {
+				x, found := uniqueAccount(after, *id)
+				if !found {
+					return "failed", failure.New(4, "selected account disappeared")
+				}
+				if x.Status == "failed" || x.Status == "auth_required" {
+					return "failed", failure.New(4, "individual update reported failure")
+				}
+				if x.Status == "updating" {
+					return "accepted", nil
+				}
+				// A receipt alone cannot identify a different row; require the selected control to change.
+				old, _ := uniqueAccount(before, *id)
+				if old.CanUpdate && !x.CanUpdate && !x.Ambiguous {
+					return "accepted", nil
+				}
+			}
+		} else if pe == nil {
+			u, _ := a.Browser.URL(a.Browser.Context)
+			if !SameAccountsURL(u, a.AccountsURL) || after.Login {
+				return "failed", failure.New(3, "authentication lost during update")
+			}
+		}
+		if e = browser.Pause(deadline, 100*time.Millisecond); e != nil {
+			if ctx.Err() != nil {
+				return "unknown", ctx.Err()
+			}
+			return "unknown", failure.New(4, "update receipt could not be confirmed; request was not resent")
+		}
+	}
+}

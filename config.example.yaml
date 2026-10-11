@@ -1,0 +1,21 @@
+auth:
+  stateFile: ./data/auth-state.json
+  seedFile: ""
+  autoLogin: false
+browser:
+  executablePath: ""
+  headless: true # auth login: omit this key or pass --headless=false
+  noSandbox: false
+reload:
+  extraAccountIds: []
+  extraAccountNames: []
+  wait: false
+  pollInterval: 10s
+timeouts:
+  navigation: 30s
+  action: 15s
+  login: 5m
+  run: 10m
+log:
+  format: json
+  level: info

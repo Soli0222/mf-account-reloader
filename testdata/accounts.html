@@ -1,0 +1,51 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><title>人工口座画面</title><body>
+<button id="bulk" onclick="update(null)">金融機関からのデータ一括更新</button><div role="status" id="receipt"></div>
+<table id="account-table"><tbody><tr><td class="service"><a href="/accounts/show_manual/manual">手動口座</a></td><td>人工的な金額</td></tr></tbody></table>
+<table id="account-table"><thead><tr><th>操作</th><th>状態</th><th>登録名</th></tr></thead><tbody id="rows"></tbody></table>
+<script>
+const options=OPTIONS;
+if(options.duplicateBulk)document.body.prepend(document.getElementById("bulk").cloneNode(true));
+let accounts=JSON.parse(sessionStorage.getItem('accounts')||'null')||[{id:'alpha',name:'人工口座 A',status:'正常'},{id:'beta',name:'人工口座 B, 外貨',status:'正常'},{id:'gamma',name:'人工口座 C',status:'正常'}];
+if(options.duplicateName)accounts[1].name=accounts[0].name;
+if(!sessionStorage.getItem('accounts')&&options.updating)accounts[0].status='更新中';
+if(!sessionStorage.getItem('accounts')&&options.unknown)accounts[0].status='不明';
+if(options.authRequired)accounts[0].status='要認証';
+if(options.missingId)accounts[0].id='';
+function render(){
+ sessionStorage.setItem('accounts',JSON.stringify(accounts));
+ document.getElementById('rows').replaceChildren();
+ for(const a of accounts){
+  const tr=document.createElement('tr');
+  const operation=document.createElement('td');
+  const edit=document.createElement('a');edit.href='/accounts/edit/'+encodeURIComponent(a.id);edit.textContent='編集';operation.append(edit);
+  const del=document.createElement('button');del.textContent='削除';del.onclick=()=>fetch('/wrong',{method:'POST'});operation.append(del);
+  const button=document.createElement(options.links?'a':'button');button.textContent='更新';if(options.links)button.href='#';
+  button.disabled=(options.disabled&&a.id==='alpha')||a.status==='更新中';
+  if(options.forms){const f=document.createElement('form');f.onsubmit=e=>{e.preventDefault();update(a.id)};const submit=document.createElement('input');submit.type='submit';submit.value='更新';submit.disabled=button.disabled;f.append(submit);operation.append(f)}else{button.onclick=e=>{e.preventDefault();update(a.id)};operation.append(button);}
+  if(options.duplicateControl&&a.id==='alpha'){const b=button.cloneNode(true);operation.append(b)}
+  const st=document.createElement('td');st.className='account-status';
+  if(options.statusTemplates){
+   for(const text of [...new Set(['更新中',a.status,'正常','取得を停止しています','取得エラー'])]){
+    const span=document.createElement('span');span.textContent=text;span.style.display=text===a.status?'':'none';st.append(span,document.createTextNode('\n '));
+   }
+   if(options.hiddenStatusCell){const hidden=document.createElement('span');hidden.className='account-status';hidden.hidden=true;hidden.textContent='更新中';st.append(hidden)}
+  }else{st.textContent=a.status}
+  if(options.hiddenWholeStatus&&a.id==='alpha')st.hidden=true;
+  const name=document.createElement('td');name.className='service';const link=document.createElement('a');link.href='/accounts/show/'+encodeURIComponent(a.id);link.textContent=a.name;name.append(link);
+  if(!a.id){edit.removeAttribute('href');link.removeAttribute('href')}
+  tr.append(operation,st,name);document.getElementById('rows').append(tr);
+ }
+}
+async function update(id){
+ if(options.dialog&&!confirm(options.dialog))return;
+ await fetch('/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+ if(options.redirect){location.href='/login';return}
+ if(options.hiddenReceiptAfterClick){const hidden=document.createElement('span');hidden.hidden=true;hidden.textContent='更新要求を受け付けました';document.getElementById('receipt').append(hidden)}
+ if(options.noReceipt||options.fail===id)return;
+ if(id===null){document.getElementById('receipt').textContent='更新要求を受け付けました';document.getElementById('bulk').disabled=true}
+ else {accounts.find(a=>a.id===id).status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()}
+ if(id===null&&options.bulkUpdating){for(const a of accounts)a.status='更新中';sessionStorage.setItem('pending',String(Date.now()));render();completeLater()}
+}
+function completeLater(){if(options.complete&&sessionStorage.getItem('pending')){setTimeout(()=>{if(options.disappear)accounts.pop();for(const a of accounts)a.status=options.waitFailure?'取得失敗':'正常';sessionStorage.removeItem('pending');render()},Math.max(0,100-(Date.now()-Number(sessionStorage.getItem('pending')))))}}
+render();completeLater();
+</script></body></html>

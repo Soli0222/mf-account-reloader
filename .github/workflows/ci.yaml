@@ -1,0 +1,87 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: test -z "$(gofmt -l cmd internal tests testdata)"
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go test -race ./...
+      - run: make build
+      - name: Workflow lint
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          actionlint -shellcheck=""
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - name: Renovate validator
+        run: npx --yes --package renovate@44.149.2 renovate-config-validator --strict renovate.json5
+  browser:
+    name: Browser integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go test -tags=integration -count=1 -timeout=5m ./tests/integration
+        env:
+          MFR_BROWSER_PATH: /usr/bin/google-chrome
+          MFR_TEST_NO_SANDBOX: 'true'
+  chart:
+    uses: ./.github/workflows/chart-lint.yaml
+  chart-guard:
+    if: github.event_name == 'pull_request'
+    uses: Soli0222/shared-workflows/.github/workflows/chart-guard.yaml@119de6bc19fdd3e2d77f0decb8bd5bd976a7a645 # main
+  container:
+    name: Runtime container (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: docker/setup-buildx-action@v4.4.1
+      - run: bash scripts/test-container.sh
+  required:
+    name: CI required
+    if: always()
+    needs: [go, browser, chart, chart-guard, container]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all checks
+        env:
+          GO: ${{ needs.go.result }}
+          BROWSER: ${{ needs.browser.result }}
+          CHART: ${{ needs.chart.result }}
+          GUARD: ${{ needs.chart-guard.result }}
+          CONTAINER: ${{ needs.container.result }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          test "$GO" = success
+          test "$BROWSER" = success
+          test "$CHART" = success
+          test "$CONTAINER" = success
+          if [ "$EVENT" = pull_request ]; then test "$GUARD" = success; fi

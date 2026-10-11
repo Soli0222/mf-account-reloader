@@ -1,0 +1,41 @@
+name: Publish Helm Chart
+on:
+  push:
+    branches: [main]
+    paths: ['charts/**']
+  schedule:
+    - cron: '17 19 * * *' # Daily 04:17 JST
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.triage.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - run: python3 -m pip install 'PyYAML==6.0.3'
+      - id: triage
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: python3 scripts/chart-triage.py
+  publish-chart:
+    needs: triage
+    if: needs.triage.outputs.run == 'true'
+    permissions:
+      contents: write
+      packages: write
+    uses: Soli0222/shared-workflows/.github/workflows/publish-chart.yaml@119de6bc19fdd3e2d77f0decb8bd5bd976a7a645 # main
+  report:
+    needs: publish-chart
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.publish-chart.outputs.result }}
+          VERSION: ${{ needs.publish-chart.outputs.version }}
+        run: echo "Chart result=$RESULT version=$VERSION" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "go",
+      "include-component-in-tag": false,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "extra-files": [{"type": "yaml", "path": "charts/mf-account-reloader/Chart.yaml", "jsonpath": "$.appVersion"}],
+      "changelog-sections": [
+        {"type":"feat", "section":"新機能"},
+        {"type":"fix", "section":"修正・依存関係の更新"},
+        {"type":"perf", "section":"性能改善"},
+        {"type":"docs", "section":"文書", "hidden":true},
+        {"type":"chore", "section":"保守", "hidden":true}
+      ]
+    }
+  }
+}

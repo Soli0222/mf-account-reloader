@@ -1,0 +1,459 @@
+{
+  "type": "object",
+  "properties": {
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "schedule": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(\\S+\\s+){4}\\S+$"
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1
+    },
+    "concurrencyPolicy": {
+      "type": "string",
+      "enum": [
+        "Forbid",
+        "Replace",
+        "Allow"
+      ]
+    },
+    "suspend": {
+      "type": "boolean"
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "IfNotPresent",
+            "Always",
+            "Never"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "tag",
+        "pullPolicy"
+      ]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "auth": {
+          "type": "object",
+          "properties": {
+            "stateFile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "seedFile": {
+              "type": "string"
+            },
+            "autoLogin": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "stateFile",
+            "autoLogin",
+            "seedFile"
+          ]
+        },
+        "browser": {
+          "type": "object",
+          "properties": {
+            "executablePath": {
+              "type": "string"
+            },
+            "headless": {
+              "type": "boolean"
+            },
+            "noSandbox": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "executablePath",
+            "headless",
+            "noSandbox"
+          ]
+        },
+        "reload": {
+          "type": "object",
+          "properties": {
+            "extraAccountIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "extraAccountNames": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "wait": {
+              "type": "boolean"
+            },
+            "pollInterval": {
+              "type": "string",
+              "pattern": "^(?:[0-9]+(?:\\.[0-9]+)?(?:ns|us|\u00b5s|ms|s|m|h))+$",
+              "not": {
+                "pattern": "^(?:0+(?:\\.0+)?(?:ns|us|\u00b5s|ms|s|m|h))+$"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "extraAccountIds",
+            "extraAccountNames",
+            "wait",
+            "pollInterval"
+          ]
+        },
+        "timeouts": {
+          "type": "object",
+          "properties": {
+            "navigation": {
+              "type": "string",
+              "pattern": "^(?:[0-9]+(?:\\.[0-9]+)?(?:ns|us|\u00b5s|ms|s|m|h))+$",
+              "not": {
+                "pattern": "^(?:0+(?:\\.0+)?(?:ns|us|\u00b5s|ms|s|m|h))+$"
+              }
+            },
+            "action": {
+              "type": "string",
+              "pattern": "^(?:[0-9]+(?:\\.[0-9]+)?(?:ns|us|\u00b5s|ms|s|m|h))+$",
+              "not": {
+                "pattern": "^(?:0+(?:\\.0+)?(?:ns|us|\u00b5s|ms|s|m|h))+$"
+              }
+            },
+            "login": {
+              "type": "string",
+              "pattern": "^(?:[0-9]+(?:\\.[0-9]+)?(?:ns|us|\u00b5s|ms|s|m|h))+$",
+              "not": {
+                "pattern": "^(?:0+(?:\\.0+)?(?:ns|us|\u00b5s|ms|s|m|h))+$"
+              }
+            },
+            "run": {
+              "type": "string",
+              "pattern": "^(?:[0-9]+(?:\\.[0-9]+)?(?:ns|us|\u00b5s|ms|s|m|h))+$",
+              "not": {
+                "pattern": "^(?:0+(?:\\.0+)?(?:ns|us|\u00b5s|ms|s|m|h))+$"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "navigation",
+            "action",
+            "login",
+            "run"
+          ]
+        },
+        "log": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": [
+                "json",
+                "text"
+              ]
+            },
+            "level": {
+              "type": "string",
+              "enum": [
+                "debug",
+                "info",
+                "warn",
+                "error"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "level"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "auth",
+        "browser",
+        "reload",
+        "timeouts",
+        "log"
+      ]
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "existingSecret": {
+          "type": "string"
+        },
+        "keys": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            },
+            "totpSecret": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "email",
+            "password",
+            "totpSecret"
+          ]
+        },
+        "stateSecret": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "key"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "existingSecret",
+        "keys",
+        "stateSecret"
+      ]
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "existingClaim": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storageClass": {
+          "type": "string"
+        },
+        "accessModes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ReadWriteOnce",
+              "ReadWriteMany",
+              "ReadOnlyMany",
+              "ReadWriteOncePod"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "existingClaim",
+        "size",
+        "storageClass",
+        "accessModes"
+      ]
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "create",
+        "name",
+        "annotations"
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    },
+    "securityContext": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    },
+    "shmSize": {
+      "type": "string",
+      "minLength": 1
+    },
+    "env": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "string"
+          },
+          "valueFrom": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "nodeSelector": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      }
+    },
+    "affinity": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    },
+    "startingDeadlineSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "activeDeadlineSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "successfulJobsHistoryLimit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failedJobsHistoryLimit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "backoffLimit": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "nameOverride",
+    "fullnameOverride",
+    "schedule",
+    "timeZone",
+    "concurrencyPolicy",
+    "suspend",
+    "image",
+    "imagePullSecrets",
+    "config",
+    "auth",
+    "persistence",
+    "serviceAccount",
+    "resources",
+    "podSecurityContext",
+    "securityContext",
+    "shmSize",
+    "env",
+    "nodeSelector",
+    "tolerations",
+    "affinity",
+    "startingDeadlineSeconds",
+    "activeDeadlineSeconds",
+    "terminationGracePeriodSeconds",
+    "successfulJobsHistoryLimit",
+    "failedJobsHistoryLimit",
+    "backoffLimit"
+  ],
+  "$schema": "https://json-schema.org/draft-07/schema#"
+}

@@ -1,0 +1,17 @@
+name: Chart Guard
+
+# chart の変更内容と version の上げ方が噛み合っているかを PR で検査する。
+# pke はこの約束を信頼して自作 chart の patch を automerge する。
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  chart-guard:
+    name: Guard chart version
+    permissions:
+      contents: read
+    uses: Soli0222/shared-workflows/.github/workflows/chart-guard.yaml@119de6bc19fdd3e2d77f0decb8bd5bd976a7a645 # main

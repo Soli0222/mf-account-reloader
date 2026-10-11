@@ -1,0 +1,13 @@
+{{- $config := deepCopy .Values.config -}}
+{{- if .Values.auth.stateSecret.name -}}
+{{- $_ := set $config.auth "seedFile" "/seed/auth-state.json" -}}
+{{- end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mfr.fullname" . }}-config
+  labels:
+    {{- include "mfr.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- toYaml $config | nindent 4 }}

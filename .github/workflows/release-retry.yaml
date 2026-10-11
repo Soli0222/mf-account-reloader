@@ -1,0 +1,74 @@
+name: Retry Release Publish
+
+# 「部分的な digest だけが残り version 付き manifest が存在しない」状態を復旧する
+# ための入口。完成済み manifest を別の digest で上書きする処理ではない
+# (publish-image の preflight がそれを拒否する)。
+#
+# 入力は version のみ。ref は受け取らない。version から release tag を求めて
+# その tag の SHA を解決すれば ref 不一致の検証自体が不要になる。任意 version ×
+# 任意 ref を受けると v1.2.3 を本来の release SHA とは別のソースから再発行できて
+# しまう。
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'やり直す release の version (先頭の v は付けない。例: 1.4.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve the release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Resolve
+        id: resolve
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::version '${VERSION}' is not a plain x.y.z version"; exit 1; }
+
+          tag="v${VERSION}"
+          if ! sha=$(git rev-parse -q --verify "refs/tags/${tag}^{commit}"); then
+            echo "::error::tag ${tag} does not exist; only a version that was actually released can be retried"
+            exit 1
+          fi
+
+          echo "${tag} -> ${sha}"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
+  publish-image:
+    name: Publish Application Image
+    needs: resolve
+    permissions:
+      contents: read
+      packages: write
+    uses: Soli0222/shared-workflows/.github/workflows/publish-image.yaml@119de6bc19fdd3e2d77f0decb8bd5bd976a7a645 # main
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+      version: ${{ inputs.version }}
+      platforms: linux/amd64,linux/arm64
+
+  publish-chart:
+    name: Publish Helm Chart
+    needs: [resolve, publish-image]
+    permissions:
+      contents: write
+      packages: write
+    uses: Soli0222/shared-workflows/.github/workflows/publish-chart.yaml@119de6bc19fdd3e2d77f0decb8bd5bd976a7a645 # main
