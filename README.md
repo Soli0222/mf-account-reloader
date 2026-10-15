@@ -276,6 +276,8 @@ kubectl -n mfr create job --from=cronjob/mfr-mf-account-reloader mfr-reauth-$(da
 
 Renovateは3時間ごとにGo、Go module、Dockerベースイメージ、Chromium、Actions、共有workflowのSHAを更新対象として確認します。Chromiumと関連パッケージは同じPRで更新します。アプリ/runtime更新は`fix(deps)`、Actions更新は`chore(deps)`です。Go本体とbuilderは同じグループです。アプリ依存のmajor更新は自動マージしません。
 
+ChromiumはDockerfileのバージョン固定を維持し、Debian trixie向けの公式配布ページをRenovateのcustom datasourceで参照します。これは、Debian Securityの`Packages.xz`を読めない[Renovate #44330](https://github.com/renovatebot/renovate/issues/44330)の回避策です。3パッケージすべてに更新候補が揃ってからPRを作成し、amd64/arm64のコンテナテストで検証します。
+
 `main`のconventional commitからrelease-pleaseがrelease PRを作ります。毎週日曜07:00 JSTに、`main`向けのrelease-pleaseブランチで、Appが作成し`autorelease: pending`ラベルを持つPRを確認します。集約checkの`CI required`を含むCIが成功した場合だけsquash mergeします。checkがないPRはマージしません。
 
 release SHAからamd64/arm64イメージを公開し、その成功後に最新mainのChartをOCIへ調停します。各アプリreleaseとChartが必ず1対1になるわけではありません。共有publish処理の結果は`published`、`no-op`、`deferred`です。`deferred`はイメージ未公開などで公開を延期した状態です。Chartの公開状態は、リリースpipelineまたは毎日04:17 JSTの定期処理で確認し、必要に応じて公開します。
