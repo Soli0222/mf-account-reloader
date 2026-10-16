@@ -6,6 +6,11 @@
   reviewers: ['Soli0222'],
   assignees: ['Soli0222'],
   labels: ['dependencies'],
+  automerge: true,
+  automergeType: 'pr',
+  automergeStrategy: 'squash',
+  platformAutomerge: false,
+  ignoreTests: false,
   prConcurrentLimit: 15,
   prHourlyLimit: 8,
   enabledManagers: ['gomod', 'dockerfile', 'github-actions'],
@@ -17,7 +22,6 @@
       matchManagers: ['gomod', 'dockerfile'],
       semanticCommitType: 'fix',
       semanticCommitScope: 'deps',
-      automerge: false,
     },
     {
       matchManagers: ['gomod', 'dockerfile'],
@@ -29,9 +33,6 @@
       semanticCommitType: 'chore',
       semanticCommitScope: 'deps',
       separateMinorPatch: true,
-      automerge: true,
-      automergeType: 'pr',
-      platformAutomerge: false,
     },
     {
       matchManagers: ['dockerfile'],
@@ -49,6 +50,5 @@
         'https://packages.debian.org/trixie/amd64/{{packageName}}/download',
       ],
     },
-    {matchUpdateTypes: ['major'], matchManagers: ['gomod', 'dockerfile'], automerge: false},
   ],
 }

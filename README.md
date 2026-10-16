@@ -274,7 +274,7 @@ kubectl -n mfr create job --from=cronjob/mfr-mf-account-reloader mfr-reauth-$(da
 
 ## Renovateとリリースを運用する
 
-Renovateは3時間ごとにGo、Go module、Dockerベースイメージ、Chromium、Actions、共有workflowのSHAを更新対象として確認します。Chromiumと関連パッケージは同じPRで更新します。アプリ/runtime更新は`fix(deps)`、Actions更新は`chore(deps)`です。Go本体とbuilderは同じグループです。アプリ依存のmajor更新は自動マージしません。
+Renovateは3時間ごとにGo、Go module、Dockerベースイメージ、Chromium、Actions、共有workflowのSHAを更新対象として確認します。Chromiumと関連パッケージは同じPRで更新します。アプリ/runtime更新は`fix(deps)`、Actions更新は`chore(deps)`です。Go本体とbuilderは同じグループです。major更新を含むすべての依存更新PRは、全CIチェックが成功し、mainに追従していることをRenovateが確認してからsquash mergeします。失敗中・実行中・チェック未実施のPRは自動マージしません。CI完了直後ではなく、次回のRenovate実行時に判定します。
 
 ChromiumはDockerfileのバージョン固定を維持し、Debian trixie向けの公式配布ページをRenovateのcustom datasourceで参照します。これは、Debian Securityの`Packages.xz`を読めない[Renovate #44330](https://github.com/renovatebot/renovate/issues/44330)の回避策です。3パッケージすべてに更新候補が揃ってからPRを作成し、amd64/arm64のコンテナテストで検証します。
 
