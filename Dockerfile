@@ -15,9 +15,9 @@ COPY --from=test-builder /out/integration.test /integration.test
 
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium=155.0.8059.39-1~deb13u1 \
-    chromium-common=155.0.8059.39-1~deb13u1 \
-    chromium-sandbox=155.0.8059.39-1~deb13u1 \
+    chromium=155.0.8059.79-1~deb13u1 \
+    chromium-common=155.0.8059.79-1~deb13u1 \
+    chromium-sandbox=155.0.8059.79-1~deb13u1 \
     ca-certificates fonts-noto-cjk tzdata tini \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 reloader \
