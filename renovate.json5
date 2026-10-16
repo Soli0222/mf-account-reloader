@@ -2,6 +2,7 @@
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended'],
   semanticCommits: 'enabled',
+  pinDigests: false,
   timezone: 'Asia/Tokyo',
   reviewers: ['Soli0222'],
   assignees: ['Soli0222'],

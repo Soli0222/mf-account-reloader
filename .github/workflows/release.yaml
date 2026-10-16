@@ -44,7 +44,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: Soli0222/shared-workflows/.github/workflows/publish-image.yaml@c2115566ce8ecf3749faf1b1849ee27cb0d9350b # main
+    uses: Soli0222/shared-workflows/.github/workflows/publish-image.yaml@v1.0.1
     with:
       ref: ${{ needs.release-please.outputs.sha }}
       version: ${{ needs.release-please.outputs.version }}
@@ -59,7 +59,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: Soli0222/shared-workflows/.github/workflows/publish-chart.yaml@c2115566ce8ecf3749faf1b1849ee27cb0d9350b # main
+    uses: Soli0222/shared-workflows/.github/workflows/publish-chart.yaml@v1.0.1
 
   report-chart:
     name: Report chart result
