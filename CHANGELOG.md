@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.3](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.2...v0.1.3) (2026-10-16)
+
+
+### 修正・依存関係の更新
+
+* **ci:** restore Renovate status checks and surface errors ([#24](https://github.com/Soli0222/mf-account-reloader/issues/24)) ([09576b7](https://github.com/Soli0222/mf-account-reloader/commit/09576b7f289928f19144addd65c629ccf3274d1e))
+* **deps:** restore Chromium builds and Renovate updates ([#20](https://github.com/Soli0222/mf-account-reloader/issues/20)) ([d9bbf8e](https://github.com/Soli0222/mf-account-reloader/commit/d9bbf8e9e9f47ab32da6714f2a2f82c56bbb2c82))
+* **deps:** update chromium runtime to v155.0.8059.79-1~deb13u1 ([#22](https://github.com/Soli0222/mf-account-reloader/issues/22)) ([7fc6d27](https://github.com/Soli0222/mf-account-reloader/commit/7fc6d274567fe1b50fe3c123133063ee351243a3))
+* **deps:** update golang:1.27.2-trixie docker digest to 4766793 ([#19](https://github.com/Soli0222/mf-account-reloader/issues/19)) ([f523c49](https://github.com/Soli0222/mf-account-reloader/commit/f523c490d3fb73b8973348420f282e48b5bac114))
+* **deps:** update module github.com/chromedp/cdproto to v0.158.1 ([#17](https://github.com/Soli0222/mf-account-reloader/issues/17)) ([e6b73d2](https://github.com/Soli0222/mf-account-reloader/commit/e6b73d2bd25655be850f1467d2bb40a3db00d96e))
+
+
+### 保守
+
+* **chart:** bump mf-account-reloader chart version to 0.2.1 ([e7c737d](https://github.com/Soli0222/mf-account-reloader/commit/e7c737daa78762fde5d7036a9f929b01b79837a4))
+* **deps:** automerge all Renovate PRs after CI succeeds ([#23](https://github.com/Soli0222/mf-account-reloader/issues/23)) ([fe10275](https://github.com/Soli0222/mf-account-reloader/commit/fe10275503b4a7233c4d396fa4d841746c57a6db))
+* **deps:** update actions/create-github-app-token action to v3.3.0 ([#18](https://github.com/Soli0222/mf-account-reloader/issues/18)) ([f870ecf](https://github.com/Soli0222/mf-account-reloader/commit/f870ecfbc5be653a6227a808995e307893715496))
+* **deps:** update renovatebot/github-action action to v46.3.8 ([#15](https://github.com/Soli0222/mf-account-reloader/issues/15)) ([4688f4d](https://github.com/Soli0222/mf-account-reloader/commit/4688f4d1de5bbc60aaf597ff06555998903bc897))
+* **deps:** update soli0222/shared-workflows digest to 9c037bb ([#21](https://github.com/Soli0222/mf-account-reloader/issues/21)) ([ee19249](https://github.com/Soli0222/mf-account-reloader/commit/ee19249181365ab6539f86c57e9f641bfa307dbb))
+* **deps:** update soli0222/shared-workflows digest to c211556 ([#25](https://github.com/Soli0222/mf-account-reloader/issues/25)) ([28f37fb](https://github.com/Soli0222/mf-account-reloader/commit/28f37fb1a2d1e3b8469725cd10258a47c80b733b))
+* **deps:** use version tags instead of digest pins ([#26](https://github.com/Soli0222/mf-account-reloader/issues/26)) ([ae6125c](https://github.com/Soli0222/mf-account-reloader/commit/ae6125ce73a8e46f6c2380c9022eb8ba2693183e))
+
 ## [0.1.2](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.1...v0.1.2) (2026-10-11)
 
 
