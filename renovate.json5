@@ -9,6 +9,9 @@
   prConcurrentLimit: 15,
   prHourlyLimit: 8,
   enabledManagers: ['gomod', 'dockerfile', 'github-actions'],
+  customDatasources: {
+    'debian-trixie': {format: 'html'},
+  },
   packageRules: [
     {
       matchManagers: ['gomod', 'dockerfile'],
@@ -33,10 +36,17 @@
     {
       matchManagers: ['dockerfile'],
       matchDatasources: ['deb'],
+      matchPackageNames: ['chromium', 'chromium-common', 'chromium-sandbox'],
       groupName: 'Chromium runtime',
+      minimumGroupSize: 3,
+      // Work around Renovate #44330: Debian Security publishes Packages.xz,
+      // while the deb datasource only fetches Packages.gz. Keep Dockerfile's
+      // native pin extraction/update; read available binaries from Debian.
+      overrideDatasource: 'custom.debian-trixie',
+      versioning: 'deb',
+      extractVersion: '_(?<version>[^_]+)_amd64\\.deb$',
       registryUrls: [
-        'https://deb.debian.org/debian-security?suite=trixie-security&components=main&binaryArch=amd64',
-        'https://deb.debian.org/debian?suite=trixie&components=main&binaryArch=amd64',
+        'https://packages.debian.org/trixie/amd64/{{packageName}}/download',
       ],
     },
     {matchUpdateTypes: ['major'], matchManagers: ['gomod', 'dockerfile'], automerge: false},
