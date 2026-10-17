@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.4](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.3...v0.1.4) (2026-10-17)
+
+
+### 修正・依存関係の更新
+
+* **deps:** update module github.com/chromedp/cdproto to v0.158.2 ([#27](https://github.com/Soli0222/mf-account-reloader/issues/27)) ([e8a2805](https://github.com/Soli0222/mf-account-reloader/commit/e8a2805d1c87e3ec47d6d901934832210eb85b16))
+
+
+### 保守
+
+* **chart:** bump mf-account-reloader chart version to 0.2.2 ([f71992d](https://github.com/Soli0222/mf-account-reloader/commit/f71992d736e3b91484f749c7cd89bc13b6467649))
+
 ## [0.1.3](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.2...v0.1.3) (2026-10-16)
 
 
