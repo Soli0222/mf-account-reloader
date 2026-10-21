@@ -50,7 +50,7 @@ jobs:
     uses: ./.github/workflows/chart-lint.yaml
   chart-guard:
     if: github.event_name == 'pull_request'
-    uses: Soli0222/shared-workflows/.github/workflows/chart-guard.yaml@v1.0.1
+    uses: Soli0222/shared-workflows/.github/workflows/chart-guard.yaml@v1.1.0
   container:
     name: Runtime container (${{ matrix.arch }})
     strategy:
