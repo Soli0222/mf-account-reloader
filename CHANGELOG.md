@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.5](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.4...v0.1.5) (2026-10-23)
+
+
+### 修正・依存関係の更新
+
+* **deps:** update chromium runtime to v156 ([#35](https://github.com/Soli0222/mf-account-reloader/issues/35)) ([a14c2f9](https://github.com/Soli0222/mf-account-reloader/commit/a14c2f964db85f79ac4ec3a3dd646469f88ef32d))
+* **deps:** update golang docker tag to v1.27.3 ([#32](https://github.com/Soli0222/mf-account-reloader/issues/32)) ([1b6e14e](https://github.com/Soli0222/mf-account-reloader/commit/1b6e14e86fa5aa361bd6978223a3c5a34a7f86c3))
+* **deps:** update module github.com/chromedp/cdproto to v0.158.3 ([#30](https://github.com/Soli0222/mf-account-reloader/issues/30)) ([96d6196](https://github.com/Soli0222/mf-account-reloader/commit/96d6196ce1503830739b70e9b3ffb46b1dff2107))
+* **deps:** update module github.com/chromedp/cdproto to v0.158.4 ([#33](https://github.com/Soli0222/mf-account-reloader/issues/33)) ([ce0fe5f](https://github.com/Soli0222/mf-account-reloader/commit/ce0fe5fc1b3e1f4efea206f5e7d3376a7f660631))
+
+
+### 保守
+
+* **chart:** bump mf-account-reloader chart version to 0.2.3 ([b8c660b](https://github.com/Soli0222/mf-account-reloader/commit/b8c660ba014947faf6755d1ec7f1ce831cfe8f45))
+* **deps:** update renovatebot/github-action action to v46.3.9 ([#29](https://github.com/Soli0222/mf-account-reloader/issues/29)) ([8616c09](https://github.com/Soli0222/mf-account-reloader/commit/8616c099874feb692b5b1915d2af3446266eb703))
+* **deps:** update soli0222/shared-workflows action to v1.1.0 ([#34](https://github.com/Soli0222/mf-account-reloader/issues/34)) ([f0ea60b](https://github.com/Soli0222/mf-account-reloader/commit/f0ea60b7908c6f9950826b921a6a82914803b99e))
+
 ## [0.1.4](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.3...v0.1.4) (2026-10-17)
 
 
