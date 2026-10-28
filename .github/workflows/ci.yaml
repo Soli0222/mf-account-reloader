@@ -30,7 +30,7 @@ jobs:
           actionlint -shellcheck=""
       - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '24'
+          node-version: '26'
       - name: Renovate validator
         run: npx --yes --package renovate@44.149.2 renovate-config-validator --strict renovate.json5
   browser:
