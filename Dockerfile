@@ -15,9 +15,9 @@ COPY --from=test-builder /out/integration.test /integration.test
 
 FROM debian:13.7-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium=156.0.8078.47-1~deb13u1 \
-    chromium-common=156.0.8078.47-1~deb13u1 \
-    chromium-sandbox=156.0.8078.47-1~deb13u1 \
+    chromium=156.0.8078.73-1~deb13u1 \
+    chromium-common=156.0.8078.73-1~deb13u1 \
+    chromium-sandbox=156.0.8078.73-1~deb13u1 \
     ca-certificates fonts-noto-cjk tzdata tini \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 reloader \
