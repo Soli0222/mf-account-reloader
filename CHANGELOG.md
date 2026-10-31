@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.6](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.5...v0.1.6) (2026-10-31)
+
+
+### 修正・依存関係の更新
+
+* **deps:** update chromium runtime to v156.0.8078.73-1~deb13u1 ([#41](https://github.com/Soli0222/mf-account-reloader/issues/41)) ([a6ae7db](https://github.com/Soli0222/mf-account-reloader/commit/a6ae7dbfca72047b8ea78fd9213b555820f5a42b))
+* **deps:** update module github.com/chromedp/cdproto to v0.158.5 ([#36](https://github.com/Soli0222/mf-account-reloader/issues/36)) ([5cae6eb](https://github.com/Soli0222/mf-account-reloader/commit/5cae6eb6792d59ae9381f6e930320a54a96ada9b))
+* **deps:** update module github.com/chromedp/cdproto to v0.158.6 ([#39](https://github.com/Soli0222/mf-account-reloader/issues/39)) ([8de0e9f](https://github.com/Soli0222/mf-account-reloader/commit/8de0e9f9cf4f07d5ef236a75be2be37304eb8e4a))
+* **deps:** update module github.com/chromedp/cdproto to v0.159.0 ([#43](https://github.com/Soli0222/mf-account-reloader/issues/43)) ([3d6462e](https://github.com/Soli0222/mf-account-reloader/commit/3d6462e9a82ca5edf9beaac76070225c719037b6))
+
+
+### 保守
+
+* **chart:** bump mf-account-reloader chart version to 0.2.4 ([41ed2dc](https://github.com/Soli0222/mf-account-reloader/commit/41ed2dcdb8a6c0a7ef6eb88b1cf8c8649b083cac))
+* **deps:** update dependency node to v26 ([#40](https://github.com/Soli0222/mf-account-reloader/issues/40)) ([a8cc6ca](https://github.com/Soli0222/mf-account-reloader/commit/a8cc6ca49096441410ea42a9625f1a0d10b8932d))
+* **deps:** update renovatebot/github-action action to v46.3.10 ([#37](https://github.com/Soli0222/mf-account-reloader/issues/37)) ([15d84ef](https://github.com/Soli0222/mf-account-reloader/commit/15d84efd765ac373c6684b13d41ab50b622f3433))
+* **deps:** update renovatebot/github-action action to v46.3.11 ([#42](https://github.com/Soli0222/mf-account-reloader/issues/42)) ([75286fb](https://github.com/Soli0222/mf-account-reloader/commit/75286fb79d81a6074b8ca1f9102c26396fdc23bb))
+
 ## [0.1.5](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.4...v0.1.5) (2026-10-23)
 
 
