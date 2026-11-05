@@ -20,6 +20,8 @@ github.com/chromedp/cdproto v0.159.0 h1:wepTaKq5AGTwIxXh6h5bESQcvcfnSb2ItnFChA62
 github.com/chromedp/cdproto v0.159.0/go.mod h1:h68JaIuFr9o3yiayxEYhBdvaxgYO3shDrPSYhNlyfu0=
 github.com/chromedp/cdproto v0.159.1 h1:k0ACb4pnDcuz30dgr1kdou0t0U+VW/4HDQm17mOdXxo=
 github.com/chromedp/cdproto v0.159.1/go.mod h1:h68JaIuFr9o3yiayxEYhBdvaxgYO3shDrPSYhNlyfu0=
+github.com/chromedp/cdproto v0.159.2 h1:tKn8DG0Nx5+ZfPSxQMm4KtCR9onPrF4kCify/oZQYNQ=
+github.com/chromedp/cdproto v0.159.2/go.mod h1:h68JaIuFr9o3yiayxEYhBdvaxgYO3shDrPSYhNlyfu0=
 github.com/chromedp/chromedp v0.20.1 h1:983T9wmyM09JtROWlxhLQwljKOQovqt8CVE89W3U0NA=
 github.com/chromedp/chromedp v0.20.1/go.mod h1:6z1Y5FdKUxRzxx2qcC5h1xjaBJrSWrZp1mjgITfNZig=
 github.com/chromedp/chromedp v0.21.0 h1:nVHgS2LHyhZJ1l3BWRbG2eFIFYiJMnvkJbELbd8WBoQ=
