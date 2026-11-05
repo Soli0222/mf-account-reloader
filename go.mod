@@ -6,7 +6,7 @@ require (
 	github.com/chromedp/cdproto v0.159.1
 	github.com/chromedp/chromedp v0.22.0
 	github.com/pquerna/otp v1.5.0
-	go.yaml.in/yaml/v3 v3.0.6
+	go.yaml.in/yaml/v4 v4.0.0
 	go.yaml.in/yaml/v4 v4.0.0
 	golang.org/x/sys v0.49.0
 )
