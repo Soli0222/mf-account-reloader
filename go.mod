@@ -4,7 +4,7 @@ go 1.27.2
 
 require (
 	github.com/chromedp/cdproto v0.159.2
-	github.com/chromedp/chromedp v0.22.1
+	github.com/chromedp/chromedp v0.23.0
 	github.com/pquerna/otp v1.5.0
 	go.yaml.in/yaml/v3 v3.0.6
 	go.yaml.in/yaml/v4 v4.0.0
