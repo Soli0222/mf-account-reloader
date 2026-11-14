@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.8](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.7...v0.1.8) (2026-11-14)
+
+
+### 修正・依存関係の更新
+
+* **deps:** update golang docker tag to v1.27.4 ([#61](https://github.com/Soli0222/mf-account-reloader/issues/61)) ([c89493c](https://github.com/Soli0222/mf-account-reloader/commit/c89493c3d06cbec6bf5faedd2e7f9acb19208f62))
+* **deps:** update module github.com/chromedp/cdproto to v0.159.3 ([#60](https://github.com/Soli0222/mf-account-reloader/issues/60)) ([bb19df7](https://github.com/Soli0222/mf-account-reloader/commit/bb19df7335ad5a9b81bcd0f4b9a4a7291bc08d61))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.0 ([#62](https://github.com/Soli0222/mf-account-reloader/issues/62)) ([8f058b8](https://github.com/Soli0222/mf-account-reloader/commit/8f058b82fc373a86746b2cdb7b59aa03b44a417e))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.1 ([#63](https://github.com/Soli0222/mf-account-reloader/issues/63)) ([3107354](https://github.com/Soli0222/mf-account-reloader/commit/31073548b261227a0b1feb647cd341ab33e90c58))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.2 ([#65](https://github.com/Soli0222/mf-account-reloader/issues/65)) ([4b800de](https://github.com/Soli0222/mf-account-reloader/commit/4b800defd7309f419ba7ba5489e7b619ab31972b))
+* **deps:** update module github.com/chromedp/chromedp to v0.23.1 ([#64](https://github.com/Soli0222/mf-account-reloader/issues/64)) ([d5ca7f6](https://github.com/Soli0222/mf-account-reloader/commit/d5ca7f64f1378528337079d68c3d953eb854597a))
+* **deps:** update module golang.org/x/sys to v0.50.0 ([#57](https://github.com/Soli0222/mf-account-reloader/issues/57)) ([8f8def5](https://github.com/Soli0222/mf-account-reloader/commit/8f8def5d96239077bc2728228a7613924080d264))
+
+
+### 保守
+
+* **chart:** bump mf-account-reloader chart version to 0.2.6 ([47e930a](https://github.com/Soli0222/mf-account-reloader/commit/47e930aa7aa12c10906a217debff4fc2f0a53356))
+* **deps:** update azure/setup-helm action to v5.1.0 ([#59](https://github.com/Soli0222/mf-account-reloader/issues/59)) ([84e7f07](https://github.com/Soli0222/mf-account-reloader/commit/84e7f07d9f788429debc681feadce57be9b60b12))
+* **deps:** update renovatebot/github-action action to v46.3.13 ([#56](https://github.com/Soli0222/mf-account-reloader/issues/56)) ([c9e6277](https://github.com/Soli0222/mf-account-reloader/commit/c9e6277ea27def71113c693a1aada0a0747ae489))
+
 ## [0.1.7](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.6...v0.1.7) (2026-11-06)
 
 
