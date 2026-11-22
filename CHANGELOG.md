@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.9](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.8...v0.1.9) (2026-11-22)
+
+
+### 修正・依存関係の更新
+
+* **deps:** update module github.com/chromedp/cdproto to v0.160.3 ([#66](https://github.com/Soli0222/mf-account-reloader/issues/66)) ([6f15e0b](https://github.com/Soli0222/mf-account-reloader/commit/6f15e0b890b45369d0ee5d048c48c25f5c5140e3))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.4 ([#70](https://github.com/Soli0222/mf-account-reloader/issues/70)) ([544e25e](https://github.com/Soli0222/mf-account-reloader/commit/544e25ee9316fdbcd332d654f446fd9287625730))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.5 ([#72](https://github.com/Soli0222/mf-account-reloader/issues/72)) ([3c07777](https://github.com/Soli0222/mf-account-reloader/commit/3c07777b4b05803657c3970c468c5ffd70958b3c))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.6 ([#74](https://github.com/Soli0222/mf-account-reloader/issues/74)) ([9188c46](https://github.com/Soli0222/mf-account-reloader/commit/9188c46eb0e8c2bc935302dc781bd8875776f003))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.7 ([#75](https://github.com/Soli0222/mf-account-reloader/issues/75)) ([04c8822](https://github.com/Soli0222/mf-account-reloader/commit/04c88227b708d38d36d69951c40566e160272fc1))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.8 ([#76](https://github.com/Soli0222/mf-account-reloader/issues/76)) ([d2f6e65](https://github.com/Soli0222/mf-account-reloader/commit/d2f6e6504fe73a8421b0198ed37c17f6ad726342))
+* **deps:** update module github.com/chromedp/chromedp to v0.24.0 ([#71](https://github.com/Soli0222/mf-account-reloader/issues/71)) ([109ceae](https://github.com/Soli0222/mf-account-reloader/commit/109ceaebaaea64048d8a4fb2b6c8c30f52f9e140))
+
+
+### 保守
+
+* **chart:** bump mf-account-reloader chart version to 0.2.7 ([a6ed5f1](https://github.com/Soli0222/mf-account-reloader/commit/a6ed5f1c11d6b49dc86a7d10153b8d8eb79dacd6))
+* **deps:** update actions/create-github-app-token action to v3.4.0 ([#73](https://github.com/Soli0222/mf-account-reloader/issues/73)) ([6a2d08f](https://github.com/Soli0222/mf-account-reloader/commit/6a2d08fa66fd9501ce085c5f1dd2bf1e7c9ba5c0))
+* **deps:** update actions/setup-go action to v7.1.0 ([#69](https://github.com/Soli0222/mf-account-reloader/issues/69)) ([72a2b7f](https://github.com/Soli0222/mf-account-reloader/commit/72a2b7f4ea7d91c29e1491bc582f45efd5418691))
+* **deps:** update renovatebot/github-action action to v46.3.14 ([#68](https://github.com/Soli0222/mf-account-reloader/issues/68)) ([187d96b](https://github.com/Soli0222/mf-account-reloader/commit/187d96bf738a379ac622f66ac4daccb8fbe9738c))
+
 ## [0.1.8](https://github.com/Soli0222/mf-account-reloader/compare/v0.1.7...v0.1.8) (2026-11-14)
 
 
