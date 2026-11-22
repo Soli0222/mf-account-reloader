@@ -27,7 +27,7 @@ jobs:
       - name: Workflow lint
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          actionlint -shellcheck=""
+          actionlint -shellcheck="" -ignore 'unexpected key "queue" for "concurrency" section'
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: '26'
