@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go test -c -tags=
 FROM scratch AS test-artifacts
 COPY --from=test-builder /out/integration.test /integration.test
 
-FROM debian:13.7-slim AS runtime
+FROM debian:13.8-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium=156.0.8078.108-1~deb13u1 \
     chromium-common=156.0.8078.108-1~deb13u1 \
