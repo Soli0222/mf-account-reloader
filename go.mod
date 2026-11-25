@@ -3,7 +3,7 @@ module github.com/Soli0222/mf-account-reloader
 go 1.27.2
 
 require (
-	github.com/chromedp/cdproto v0.160.8
+	github.com/chromedp/cdproto v0.160.9
 	github.com/chromedp/chromedp v0.24.0
 	github.com/pquerna/otp v1.5.0
 	go.yaml.in/yaml/v4 v4.0.0
